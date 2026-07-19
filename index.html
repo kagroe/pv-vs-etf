@@ -229,7 +229,7 @@
       <div class="mini-h">Investition &amp; Verbrauch</div>
       <div class="field">
         <div class="field-label"><span>PV-Investition</span><span class="val" id="v_I0">11.000 €</span></div>
-        <input type="range" id="I0" min="2000" max="40000" step="500" value="11000">
+        <input type="range" id="I0" min="500" max="40000" step="500" value="11000">
       </div>
       <div class="field">
         <div class="field-label"><span>Stromverbrauch / Jahr</span><span class="val" id="v_E">8.640 kWh</span></div>
@@ -461,7 +461,7 @@
       </div>
 
       <footer>
-        Modell: Beim reinen ETF-Depot wird die Investitionssumme angelegt, während die vollen Stromkosten sowie die jährliche Kapitalertragsteuer auf dem Girokonto verrechnet werden. Bei PV+ETF ersetzt die Anlage die Investition; jährliche Stromersparnis und Einspeisevergütung fließen (anteilig) ins Depot, verbleibende Stromkosten und Wartung werden gegengerechnet. Die Einspeisevergütung wird für die ersten 20 Jahre angesetzt. Alle Werte sind eine vereinfachte Modellrechnung, keine Anlage- oder Steuerberatung.
+        Modell: Beim reinen ETF-Depot wird die Investitionssumme angelegt, während die vollen Stromkosten sowie die jährliche Kapitalertragsteuer auf dem Verrechnungssaldo verrechnet werden. Bei PV+ETF ersetzt die Anlage die Investition; jährliche Stromersparnis und Einspeisevergütung fließen (anteilig) ins Depot, verbleibende Stromkosten und Wartung werden gegengerechnet. Die Einspeisevergütung wird für die ersten 20 Jahre angesetzt. Alle Werte sind eine vereinfachte Modellrechnung, keine Anlage- oder Steuerberatung.
       </footer>
     </div>
   </div>
@@ -804,10 +804,10 @@ function setupHover(){
       : fmtEUR(s.etfDepotGross[yr]);
     let html = `<div style="color:#8d99a8;margin-bottom:4px;">Jahr ${yr}</div>
       <div class="row"><span style="color:#22c55e;">PV+ETF</span><span>${pvLine}</span></div>
-      <div class="row" style="padding-left:10px;"><span style="color:#8d99a8;">Girokonto</span><span>${fmtEUR(s.pvGiro[yr])}</span></div>
+      <div class="row" style="padding-left:10px;"><span style="color:#8d99a8;">Verrechnungssaldo</span><span>${fmtEUR(s.pvGiro[yr])}</span></div>
       <div class="row" style="padding-left:10px;margin-bottom:6px;"><span style="color:#8d99a8;">Depot</span><span>${pvDepotLine}</span></div>
       <div class="row"><span style="color:#4c8eff;">Nur ETF</span><span>${etfLine}</span></div>
-      <div class="row" style="padding-left:10px;"><span style="color:#8d99a8;">Girokonto</span><span>${fmtEUR(s.etfGiro[yr])}</span></div>
+      <div class="row" style="padding-left:10px;"><span style="color:#8d99a8;">Verrechnungssaldo</span><span>${fmtEUR(s.etfGiro[yr])}</span></div>
       <div class="row" style="padding-left:10px;margin-bottom:6px;"><span style="color:#8d99a8;">Depot</span><span>${etfDepotLine}</span></div>
       <div class="row"><span style="color:#ef6f61;">Keine Inv.</span><span>${fmtEUR(s.none[yr])}</span></div>`;
     if(meta.compareSeries){
