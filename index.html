@@ -229,7 +229,7 @@
       <div class="mini-h">Investition &amp; Verbrauch</div>
       <div class="field">
         <div class="field-label"><span>PV-Investition</span><span class="val" id="v_I0">11.000 €</span></div>
-        <input type="range" id="I0" min="500" max="40000" step="500" value="11000">
+        <input type="range" id="I0" min="2000" max="40000" step="500" value="11000">
       </div>
       <div class="field">
         <div class="field-label"><span>Stromverbrauch / Jahr</span><span class="val" id="v_E">8.640 kWh</span></div>
@@ -295,12 +295,8 @@
           <div class="field-sub">Anteil des Verbrauchs, den die Anlage selbst deckt</div>
         </div>
         <div class="field">
-          <div class="field-label"><span>Erzeugung / Jahr</span><span class="val" id="v_erzeugungPct">8.523 kWh</span></div>
-          <input type="range" id="erzeugungPct" min="0" max="20000" step="50" value="8523">
-          <div class="field-sub">Gesamte PV-Produktion laut App/Zähler</div>
-        </div>
-        <div class="ev-info">
-          <div><span>Daraus errechnet: Einspeisung</span><span id="v_derivedEinspeisungPct" class="val">— kWh/Jahr</span></div>
+          <div class="field-label"><span>Einspeisung / Jahr</span><span class="val" id="v_F">3.080 kWh</span></div>
+          <input type="range" id="F" min="0" max="10000" step="50" value="3080">
         </div>
       </div>
 
@@ -461,14 +457,14 @@
       </div>
 
       <footer>
-        Modell: Beim reinen ETF-Depot wird die Investitionssumme angelegt, während die vollen Stromkosten sowie die jährliche Kapitalertragsteuer auf dem Verrechnungssaldo verrechnet werden. Bei PV+ETF ersetzt die Anlage die Investition; jährliche Stromersparnis und Einspeisevergütung fließen (anteilig) ins Depot, verbleibende Stromkosten und Wartung werden gegengerechnet. Die Einspeisevergütung wird für die ersten 20 Jahre angesetzt. Alle Werte sind eine vereinfachte Modellrechnung, keine Anlage- oder Steuerberatung.
+        Modell: Beim reinen ETF-Depot wird die Investitionssumme angelegt, während die vollen Stromkosten sowie die jährliche Kapitalertragsteuer auf dem Girokonto verrechnet werden. Bei PV+ETF ersetzt die Anlage die Investition; jährliche Stromersparnis und Einspeisevergütung fließen (anteilig) ins Depot, verbleibende Stromkosten und Wartung werden gegengerechnet. Die Einspeisevergütung wird für die ersten 20 Jahre angesetzt. Alle Werte sind eine vereinfachte Modellrechnung, keine Anlage- oder Steuerberatung.
       </footer>
     </div>
   </div>
 </div>
 
 <script>
-const ids=['I0','E','p0','g','r','t','a','f','m','s','years','deg','basiszins','freibetrag','teilfreistellung','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare','erzeugung','eigennutzung','erzeugungPct'];
+const ids=['I0','E','p0','g','r','t','a','f','F','m','s','years','deg','basiszins','freibetrag','teilfreistellung','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare','erzeugung','eigennutzung'];
 const els={}; ids.forEach(id=>els[id]=document.getElementById(id));
 let evEnabled=false;
 const evToggle=document.getElementById('evToggle');
@@ -536,7 +532,7 @@ function updateLabels(){
   document.getElementById('v_t').textContent = (+els.t.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
   document.getElementById('v_a').textContent = fmtInt(+els.a.value)+' %';
   document.getElementById('v_f').textContent = (+els.f.value).toLocaleString('de-DE',{minimumFractionDigits:3})+' €';
-  document.getElementById('v_erzeugungPct').textContent = fmtInt(+els.erzeugungPct.value)+' kWh';
+  document.getElementById('v_F').textContent = fmtInt(+els.F.value)+' kWh';
   document.getElementById('v_m').textContent = fmtEUR(+els.m.value);
   document.getElementById('v_s').textContent = fmtInt(+els.s.value)+' %';
   document.getElementById('v_years').textContent = els.years.value+' Jahre';
@@ -559,7 +555,6 @@ function updateLabels(){
   const derived = getEffectiveAF();
   document.getElementById('v_derivedAutarkie').textContent = fmtInt(derived.a*100)+' %';
   document.getElementById('v_derivedEinspeisung').textContent = fmtInt(derived.F)+' kWh/Jahr';
-  document.getElementById('v_derivedEinspeisungPct').textContent = fmtInt(derived.F)+' kWh/Jahr';
 }
 
 function getEffectiveAF(){
@@ -572,16 +567,7 @@ function getEffectiveAF(){
     const FUsed = Math.max(0, erz-effEig);
     return {a:aUsed, F:FUsed};
   }
-  // Prozent-Modus: Eigennutzung ergibt sich aus dem Autarkiegrad, Einspeisung wird
-  // aus Erzeugung minus Eigennutzung abgeleitet — nie mehr unabhängig einstellbar,
-  // damit sie unabhängig von der Einspeisevergütung immer korrekt mit der tatsächlichen
-  // Anlagenproduktion gekoppelt bleibt.
-  const aInput = (+els.a.value)/100;
-  const erzPct = +els.erzeugungPct.value;
-  const eigPct = Math.min(E*aInput, erzPct);
-  const aUsed = E>0 ? eigPct/E : 0;
-  const FUsed = Math.max(0, erzPct-eigPct);
-  return {a:aUsed, F:FUsed};
+  return {a:(+els.a.value)/100, F:+els.F.value};
 }
 
 function computeTax(kapEr, etfPrevValue, basiszins, freibetrag, t, teilfreistellung){
@@ -804,10 +790,10 @@ function setupHover(){
       : fmtEUR(s.etfDepotGross[yr]);
     let html = `<div style="color:#8d99a8;margin-bottom:4px;">Jahr ${yr}</div>
       <div class="row"><span style="color:#22c55e;">PV+ETF</span><span>${pvLine}</span></div>
-      <div class="row" style="padding-left:10px;"><span style="color:#8d99a8;">Verrechnungssaldo</span><span>${fmtEUR(s.pvGiro[yr])}</span></div>
+      <div class="row" style="padding-left:10px;"><span style="color:#8d99a8;">Girokonto</span><span>${fmtEUR(s.pvGiro[yr])}</span></div>
       <div class="row" style="padding-left:10px;margin-bottom:6px;"><span style="color:#8d99a8;">Depot</span><span>${pvDepotLine}</span></div>
       <div class="row"><span style="color:#4c8eff;">Nur ETF</span><span>${etfLine}</span></div>
-      <div class="row" style="padding-left:10px;"><span style="color:#8d99a8;">Verrechnungssaldo</span><span>${fmtEUR(s.etfGiro[yr])}</span></div>
+      <div class="row" style="padding-left:10px;"><span style="color:#8d99a8;">Girokonto</span><span>${fmtEUR(s.etfGiro[yr])}</span></div>
       <div class="row" style="padding-left:10px;margin-bottom:6px;"><span style="color:#8d99a8;">Depot</span><span>${etfDepotLine}</span></div>
       <div class="row"><span style="color:#ef6f61;">Keine Inv.</span><span>${fmtEUR(s.none[yr])}</span></div>`;
     if(meta.compareSeries){
