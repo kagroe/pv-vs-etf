@@ -514,6 +514,7 @@ function computeSeries(evOverride){
   const evLiterYear = useEv ? (+els.evKm.value)*(+els.evBenzinVerbrauch.value)/100 : 0;
   const fuelPrice0 = +els.fuelPrice.value;
   const fuelIncrease = (+els.fuelIncrease.value)/100;
+  const totalProd0 = E*a + F; // angenommene Gesamtproduktion im Jahr 1: Eigenverbrauch + Einspeisung
 
   let etf = {ETF:I0, Giro:0};
   let pv = {ETF:0, Giro:0};
@@ -526,7 +527,12 @@ function computeSeries(evOverride){
     const fuelPrice = fuelPrice0*Math.pow(1+fuelIncrease,n-1);
     const evFuelSavings = evLiterYear*fuelPrice;
     const degFactor = Math.pow(1-deg, n-1); // PV-Ertrag sinkt über die Jahre
-    const aEff = a*degFactor;
+    // Degradation mindert zuerst den Überschuss (Einspeisung), erst wenn die Produktion
+    // unter den Verbrauch fällt, sinkt auch die Autarkie selbst.
+    const totalProd = totalProd0*degFactor;
+    const selfConsumption = Math.min(E, totalProd);
+    const aEff = E>0 ? selfConsumption/E : 0;
+    const exportKwh = Math.max(0, totalProd - E);
     const evPvShareEff = evPvShare*degFactor; // weniger PV-Überschuss fürs Laden bei sinkendem Ertrag
 
     // ETF alone — E-Auto lädt komplett aus dem Netz, aber Spritkosten entfallen
@@ -539,7 +545,7 @@ function computeSeries(evOverride){
 
     // PV + ETF — Teil des Ladestroms kommt aus eigener PV
     const ersparnis = E*price*aEff + evConsumption*price*evPvShareEff;
-    const einspeise = n<=feedInYears ? f*F*degFactor : 0;
+    const einspeise = n<=feedInYears ? f*exportKwh : 0;
     const kapEr2 = pv.ETF*r;
     const kapSt2 = computeTax(kapEr2, pv.ETF, basiszins, freibetrag, t);
     const restkosten = E*price*(1-aEff) + evConsumption*price*(1-evPvShareEff) + m;
