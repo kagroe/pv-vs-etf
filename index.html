@@ -179,6 +179,11 @@
   .ev-info .val{font-family:'JetBrains Mono',monospace;color:var(--gold);font-weight:600;}
   .stat .num{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;color:var(--text);}
   .stat .num.neg{color:var(--coral);}
+  .num-wrap{position:relative;}
+  .netto-hint{
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-faint);
+    margin-top:5px;
+  }
   .stat .stat-sub{font-size:11.5px;color:var(--text-faint);margin-top:6px;}
 
   /* ---------- Chart ---------- */
@@ -265,6 +270,11 @@
         <div class="field">
           <div class="field-label"><span>Sparerpauschbetrag / Jahr</span><span class="val" id="v_freibetrag">1.000 €</span></div>
           <input type="range" id="freibetrag" min="0" max="2000" step="50" value="1000">
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Teilfreistellung (Aktienfonds)</span><span class="val" id="v_teilfreistellung">30 %</span></div>
+          <input type="range" id="teilfreistellung" min="0" max="60" step="5" value="30">
+          <div class="field-sub">Anteil der Kapitalerträge, der steuerfrei bleibt</div>
         </div>
       </div>
 
@@ -408,11 +418,17 @@
         </div>
         <div class="stat gold">
           <div class="lbl"><span class="dot gold"></span>PV + ETF</div>
-          <div class="num" id="stat_pvetf">—</div>
+          <div class="num-wrap">
+            <div class="num" id="stat_pvetf">—</div>
+            <div class="netto-hint" id="stat_pvetf_netto">netto —</div>
+          </div>
         </div>
         <div class="stat teal">
           <div class="lbl"><span class="dot teal"></span>Nur ETF</div>
-          <div class="num" id="stat_etf">—</div>
+          <div class="num-wrap">
+            <div class="num" id="stat_etf">—</div>
+            <div class="netto-hint" id="stat_etf_netto">netto —</div>
+          </div>
         </div>
         <div class="stat coral">
           <div class="lbl"><span class="dot coral"></span>Keine Investition</div>
@@ -448,7 +464,7 @@
 </div>
 
 <script>
-const ids=['I0','E','p0','g','r','t','a','f','F','m','s','years','deg','basiszins','freibetrag','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare','erzeugung','eigennutzung'];
+const ids=['I0','E','p0','g','r','t','a','f','F','m','s','years','deg','basiszins','freibetrag','teilfreistellung','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare','erzeugung','eigennutzung'];
 const els={}; ids.forEach(id=>els[id]=document.getElementById(id));
 let evEnabled=false;
 const evToggle=document.getElementById('evToggle');
@@ -523,6 +539,7 @@ function updateLabels(){
   document.getElementById('v_deg').textContent = (+els.deg.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
   document.getElementById('v_basiszins').textContent = (+els.basiszins.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
   document.getElementById('v_freibetrag').textContent = fmtEUR(+els.freibetrag.value);
+  document.getElementById('v_teilfreistellung').textContent = fmtInt(+els.teilfreistellung.value)+' %';
   document.getElementById('v_evKm').textContent = fmtInt(+els.evKm.value)+' km';
   document.getElementById('v_evStromVerbrauch').textContent = (+els.evStromVerbrauch.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' kWh/100km';
   document.getElementById('v_evBenzinVerbrauch').textContent = (+els.evBenzinVerbrauch.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' l/100km';
@@ -553,15 +570,19 @@ function getEffectiveAF(){
   return {a:(+els.a.value)/100, F:+els.F.value};
 }
 
-function computeTax(kapEr, etfPrevValue, basiszins, freibetrag, t){
+function computeTax(kapEr, etfPrevValue, basiszins, freibetrag, t, teilfreistellung){
   if(taxMode==='simple'){
-    return kapEr*t;
+    return {tax: kapEr*t, vorabGross: 0, usedAllowance: 0};
   }
   // Realistisch: Vorabpauschale = Depotwert * Basiszins * 0.7, gedeckelt auf den realen Gewinn.
-  // Sparerpauschbetrag mindert die steuerpflichtige Bemessungsgrundlage, Rest wird mit t versteuert.
-  const vorab = Math.max(0, Math.min(kapEr, etfPrevValue*basiszins*0.7));
-  const steuerpflichtig = Math.max(0, vorab - freibetrag);
-  return steuerpflichtig*t;
+  // Teilfreistellung mindert die Bemessungsgrundlage, danach zieht der Sparerpauschbetrag,
+  // der Rest wird mit t versteuert. Der volle (Brutto-)Vorab-Betrag erhöht die Kostenbasis,
+  // damit er beim späteren Verkauf nicht doppelt besteuert wird.
+  const vorabGross = Math.max(0, Math.min(kapEr, etfPrevValue*basiszins*0.7));
+  const taxableBase = vorabGross*(1-teilfreistellung);
+  const usedAllowance = Math.min(freibetrag, taxableBase);
+  const steuerpflichtig = Math.max(0, taxableBase - freibetrag);
+  return {tax: steuerpflichtig*t, vorabGross, usedAllowance};
 }
 
 function computeSeries(evOverride){
@@ -570,7 +591,8 @@ function computeSeries(evOverride){
         r=(+els.r.value)/100, t=(+els.t.value)/100,
         f=+els.f.value, m=+els.m.value, s=(+els.s.value)/100,
         years=+els.years.value, deg=(+els.deg.value)/100,
-        basiszins=(+els.basiszins.value)/100, freibetrag=+els.freibetrag.value;
+        basiszins=(+els.basiszins.value)/100, freibetrag=+els.freibetrag.value,
+        teilfreistellung=(+els.teilfreistellung.value)/100;
   const {a, F} = getEffectiveAF();
   const feedInYears = 20;
 
@@ -584,8 +606,10 @@ function computeSeries(evOverride){
   let etf = {ETF:I0, Giro:0};
   let pv = {ETF:0, Giro:0};
   let none = {Giro:I0};
+  let etfCostBasis = I0;  // steuerliche Anschaffungskosten (wächst durch versteuerte Vorabpauschale)
+  let pvCostBasis = 0;
 
-  const series = { etf:[I0], pv:[0], none:[I0] };
+  const series = { etf:[I0], pv:[0], none:[I0], etfGross:[I0], pvGross:[0] };
 
   for(let n=1;n<=years;n++){
     const price = p0*Math.pow(1+g,n-1);
@@ -602,21 +626,42 @@ function computeSeries(evOverride){
 
     // ETF alone — E-Auto lädt komplett aus dem Netz, aber Spritkosten entfallen
     const kapEr = etf.ETF*r;
-    const kapSt = computeTax(kapEr, etf.ETF, basiszins, freibetrag, t);
+    const taxRes = computeTax(kapEr, etf.ETF, basiszins, freibetrag, t, teilfreistellung);
     const strom = E*price + evConsumption*price;
-    etf.Giro = etf.Giro - strom - kapSt + evFuelSavings;
+    etf.Giro = etf.Giro - strom - taxRes.tax + evFuelSavings;
     etf.ETF = etf.ETF + kapEr;
-    series.etf.push(etf.Giro+etf.ETF);
+    etfCostBasis += taxRes.vorabGross;
 
     // PV + ETF — Teil des Ladestroms kommt aus eigener PV
     const ersparnis = E*price*aEff + evConsumption*price*evPvShareEff;
     const einspeise = n<=feedInYears ? f*exportKwh : 0;
     const kapEr2 = pv.ETF*r;
-    const kapSt2 = computeTax(kapEr2, pv.ETF, basiszins, freibetrag, t);
+    const taxRes2 = computeTax(kapEr2, pv.ETF, basiszins, freibetrag, t, teilfreistellung);
     const restkosten = E*price*(1-aEff) + evConsumption*price*(1-evPvShareEff) + m;
     pv.ETF = pv.ETF + kapEr2 + s*ersparnis + s*einspeise;
-    pv.Giro = pv.Giro - kapSt2 - restkosten + (1-s)*einspeise - s*ersparnis + evFuelSavings;
-    series.pv.push(pv.Giro+pv.ETF);
+    pv.Giro = pv.Giro - taxRes2.tax - restkosten + (1-s)*einspeise - s*ersparnis + evFuelSavings;
+    pvCostBasis += taxRes2.vorabGross + s*ersparnis + s*einspeise;
+
+    if(taxMode==='real'){
+      // "Wenn ich heute alles verkaufen würde": verbleibende Steuerschuld auf den nicht
+      // bereits über die Vorabpauschale versteuerten Gewinn, abzüglich Restfreibetrag.
+      const remAllowEtf = Math.max(0, freibetrag - taxRes.usedAllowance);
+      const gainEtf = Math.max(0, etf.ETF - etfCostBasis)*(1-teilfreistellung);
+      const embeddedTaxEtf = Math.max(0, gainEtf - remAllowEtf)*t;
+      series.etfGross.push(etf.Giro + etf.ETF);
+      series.etf.push(etf.Giro + etf.ETF - embeddedTaxEtf);
+
+      const remAllowPv = Math.max(0, freibetrag - taxRes2.usedAllowance);
+      const gainPv = Math.max(0, pv.ETF - pvCostBasis)*(1-teilfreistellung);
+      const embeddedTaxPv = Math.max(0, gainPv - remAllowPv)*t;
+      series.pvGross.push(pv.Giro + pv.ETF);
+      series.pv.push(pv.Giro + pv.ETF - embeddedTaxPv);
+    } else {
+      series.etf.push(etf.Giro+etf.ETF);
+      series.etfGross.push(etf.Giro+etf.ETF);
+      series.pv.push(pv.Giro+pv.ETF);
+      series.pvGross.push(pv.Giro+pv.ETF);
+    }
 
     // none — E-Auto lädt komplett aus dem Netz, aber Spritkosten entfallen
     const strom3 = E*price + evConsumption*price;
@@ -625,7 +670,7 @@ function computeSeries(evOverride){
   }
 
   // Amortisation = tatsächlicher Schnittpunkt der PV+ETF- und der Keine-Investition-Kurve
-  series.amortYear = findCrossing(series.pv, series.none);
+  series.amortYear = findCrossing(series.pvGross, series.none);
   series.feedInYears = feedInYears;
   return series;
 }
@@ -645,7 +690,7 @@ function findCrossing(arrA, arrB){
 }
 
 function findBreakeven(series){
-  return findCrossing(series.pv, series.etf);
+  return findCrossing(series.pvGross, series.etfGross);
 }
 
 function drawChart(series, compareSeries){
@@ -684,13 +729,13 @@ function drawChart(series, compareSeries){
   }
 
   svgContent += `<path d="${mkPath(series.none)}" fill="none" stroke="#ef6f61" stroke-width="2" opacity="0.85"/>`;
-  svgContent += `<path d="${mkPath(series.etf)}" fill="none" stroke="#4c8eff" stroke-width="2.2"/>`;
-  svgContent += `<path d="${mkPath(series.pv)}" fill="none" stroke="#22c55e" stroke-width="2.6"/>`;
+  svgContent += `<path d="${mkPath(series.etfGross)}" fill="none" stroke="#4c8eff" stroke-width="2.2"/>`;
+  svgContent += `<path d="${mkPath(series.pvGross)}" fill="none" stroke="#22c55e" stroke-width="2.6"/>`;
 
   if(compareSeries){
     svgContent += `<path d="${mkPath(compareSeries.none)}" fill="none" stroke="#ef6f61" stroke-width="1.6" stroke-dasharray="5,4" opacity="0.55"/>`;
-    svgContent += `<path d="${mkPath(compareSeries.etf)}" fill="none" stroke="#4c8eff" stroke-width="1.6" stroke-dasharray="5,4" opacity="0.55"/>`;
-    svgContent += `<path d="${mkPath(compareSeries.pv)}" fill="none" stroke="#22c55e" stroke-width="1.8" stroke-dasharray="5,4" opacity="0.55"/>`;
+    svgContent += `<path d="${mkPath(compareSeries.etfGross)}" fill="none" stroke="#4c8eff" stroke-width="1.6" stroke-dasharray="5,4" opacity="0.55"/>`;
+    svgContent += `<path d="${mkPath(compareSeries.pvGross)}" fill="none" stroke="#22c55e" stroke-width="1.8" stroke-dasharray="5,4" opacity="0.55"/>`;
   }
 
   if(series.amortYear){
@@ -725,22 +770,31 @@ function setupHover(){
     let yr = Math.round( (relX-meta.padL) / (meta.W-meta.padL-meta.padR) * meta.years );
     yr = Math.max(0, Math.min(meta.years, yr));
     const s = meta.series;
+    const showNetto = taxMode==='real';
+    const pvLine = showNetto
+      ? `${fmtEUR(s.pvGross[yr])} <span style="color:#8d99a8;">(netto ${fmtEUR(s.pv[yr])})</span>`
+      : fmtEUR(s.pvGross[yr]);
+    const etfLine = showNetto
+      ? `${fmtEUR(s.etfGross[yr])} <span style="color:#8d99a8;">(netto ${fmtEUR(s.etf[yr])})</span>`
+      : fmtEUR(s.etfGross[yr]);
     let html = `<div style="color:#8d99a8;margin-bottom:4px;">Jahr ${yr}</div>
-      <div class="row"><span style="color:#22c55e;">PV+ETF</span><span>${fmtEUR(s.pv[yr])}</span></div>
-      <div class="row"><span style="color:#4c8eff;">Nur ETF</span><span>${fmtEUR(s.etf[yr])}</span></div>
+      <div class="row"><span style="color:#22c55e;">PV+ETF</span><span>${pvLine}</span></div>
+      <div class="row"><span style="color:#4c8eff;">Nur ETF</span><span>${etfLine}</span></div>
       <div class="row"><span style="color:#ef6f61;">Keine Inv.</span><span>${fmtEUR(s.none[yr])}</span></div>`;
     if(meta.compareSeries){
       const c = meta.compareSeries;
+      const cPvLine = showNetto ? `${fmtEUR(c.pvGross[yr])} <span style="color:#8d99a8;">(n. ${fmtEUR(c.pv[yr])})</span>` : fmtEUR(c.pvGross[yr]);
+      const cEtfLine = showNetto ? `${fmtEUR(c.etfGross[yr])} <span style="color:#8d99a8;">(n. ${fmtEUR(c.etf[yr])})</span>` : fmtEUR(c.etfGross[yr]);
       html += `<div style="color:#8d99a8;margin:6px 0 3px;border-top:1px solid #2a3442;padding-top:5px;">mit Verbrenner</div>
-      <div class="row"><span style="color:#22c55e;opacity:.7;">PV+ETF</span><span>${fmtEUR(c.pv[yr])}</span></div>
-      <div class="row"><span style="color:#4c8eff;opacity:.7;">Nur ETF</span><span>${fmtEUR(c.etf[yr])}</span></div>
+      <div class="row"><span style="color:#22c55e;opacity:.7;">PV+ETF</span><span>${cPvLine}</span></div>
+      <div class="row"><span style="color:#4c8eff;opacity:.7;">Nur ETF</span><span>${cEtfLine}</span></div>
       <div class="row"><span style="color:#ef6f61;opacity:.7;">Keine Inv.</span><span>${fmtEUR(c.none[yr])}</span></div>`;
     }
     tooltip.innerHTML = html;
     const wrapRect = wrap.getBoundingClientRect();
     let left = e.clientX-wrapRect.left+14;
     let top = e.clientY-wrapRect.top-10;
-    if(left + 170 > wrapRect.width) left = e.clientX-wrapRect.left-190;
+    if(left + 260 > wrapRect.width) left = e.clientX-wrapRect.left-280;
     tooltip.style.left = left+'px';
     tooltip.style.top = top+'px';
     tooltip.style.opacity='1';
@@ -764,12 +818,23 @@ function render(){
     amortSub.textContent = 'Im gewählten Zeitraum noch nicht erreicht.';
   }
 
-  document.getElementById('stat_pvetf').textContent = fmtEUR(series.pv[years]);
-  document.getElementById('stat_pvetf').classList.toggle('neg', series.pv[years]<0);
-  document.getElementById('stat_etf').textContent = fmtEUR(series.etf[years]);
-  document.getElementById('stat_etf').classList.toggle('neg', series.etf[years]<0);
+  document.getElementById('stat_pvetf').textContent = fmtEUR(series.pvGross[years]);
+  document.getElementById('stat_pvetf').classList.toggle('neg', series.pvGross[years]<0);
+  document.getElementById('stat_etf').textContent = fmtEUR(series.etfGross[years]);
+  document.getElementById('stat_etf').classList.toggle('neg', series.etfGross[years]<0);
   document.getElementById('stat_none').textContent = fmtEUR(series.none[years]);
   document.getElementById('stat_none').classList.toggle('neg', series.none[years]<0);
+  const pvNettoHint = document.getElementById('stat_pvetf_netto');
+  const etfNettoHint = document.getElementById('stat_etf_netto');
+  if(taxMode==='real'){
+    pvNettoHint.textContent = 'netto ' + fmtEUR(series.pv[years]);
+    etfNettoHint.textContent = 'netto ' + fmtEUR(series.etf[years]);
+    pvNettoHint.style.display = 'block';
+    etfNettoHint.style.display = 'block';
+  } else {
+    pvNettoHint.style.display = 'none';
+    etfNettoHint.style.display = 'none';
+  }
 
   const be = findBreakeven(series);
   series.breakevenYear = be;
