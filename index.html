@@ -295,8 +295,12 @@
           <div class="field-sub">Anteil des Verbrauchs, den die Anlage selbst deckt</div>
         </div>
         <div class="field">
-          <div class="field-label"><span>Einspeisung / Jahr</span><span class="val" id="v_F">3.080 kWh</span></div>
-          <input type="range" id="F" min="0" max="10000" step="50" value="3080">
+          <div class="field-label"><span>Erzeugung / Jahr</span><span class="val" id="v_erzeugungPct">8.523 kWh</span></div>
+          <input type="range" id="erzeugungPct" min="0" max="20000" step="50" value="8523">
+          <div class="field-sub">Gesamte PV-Produktion laut App/Zähler</div>
+        </div>
+        <div class="ev-info">
+          <div><span>Daraus errechnet: Einspeisung</span><span id="v_derivedEinspeisungPct" class="val">— kWh/Jahr</span></div>
         </div>
       </div>
 
@@ -464,7 +468,7 @@
 </div>
 
 <script>
-const ids=['I0','E','p0','g','r','t','a','f','F','m','s','years','deg','basiszins','freibetrag','teilfreistellung','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare','erzeugung','eigennutzung'];
+const ids=['I0','E','p0','g','r','t','a','f','m','s','years','deg','basiszins','freibetrag','teilfreistellung','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare','erzeugung','eigennutzung','erzeugungPct'];
 const els={}; ids.forEach(id=>els[id]=document.getElementById(id));
 let evEnabled=false;
 const evToggle=document.getElementById('evToggle');
@@ -532,7 +536,7 @@ function updateLabels(){
   document.getElementById('v_t').textContent = (+els.t.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
   document.getElementById('v_a').textContent = fmtInt(+els.a.value)+' %';
   document.getElementById('v_f').textContent = (+els.f.value).toLocaleString('de-DE',{minimumFractionDigits:3})+' €';
-  document.getElementById('v_F').textContent = fmtInt(+els.F.value)+' kWh';
+  document.getElementById('v_erzeugungPct').textContent = fmtInt(+els.erzeugungPct.value)+' kWh';
   document.getElementById('v_m').textContent = fmtEUR(+els.m.value);
   document.getElementById('v_s').textContent = fmtInt(+els.s.value)+' %';
   document.getElementById('v_years').textContent = els.years.value+' Jahre';
@@ -555,6 +559,7 @@ function updateLabels(){
   const derived = getEffectiveAF();
   document.getElementById('v_derivedAutarkie').textContent = fmtInt(derived.a*100)+' %';
   document.getElementById('v_derivedEinspeisung').textContent = fmtInt(derived.F)+' kWh/Jahr';
+  document.getElementById('v_derivedEinspeisungPct').textContent = fmtInt(derived.F)+' kWh/Jahr';
 }
 
 function getEffectiveAF(){
@@ -567,7 +572,16 @@ function getEffectiveAF(){
     const FUsed = Math.max(0, erz-effEig);
     return {a:aUsed, F:FUsed};
   }
-  return {a:(+els.a.value)/100, F:+els.F.value};
+  // Prozent-Modus: Eigennutzung ergibt sich aus dem Autarkiegrad, Einspeisung wird
+  // aus Erzeugung minus Eigennutzung abgeleitet — nie mehr unabhängig einstellbar,
+  // damit sie unabhängig von der Einspeisevergütung immer korrekt mit der tatsächlichen
+  // Anlagenproduktion gekoppelt bleibt.
+  const aInput = (+els.a.value)/100;
+  const erzPct = +els.erzeugungPct.value;
+  const eigPct = Math.min(E*aInput, erzPct);
+  const aUsed = E>0 ? eigPct/E : 0;
+  const FUsed = Math.max(0, erzPct-eigPct);
+  return {a:aUsed, F:FUsed};
 }
 
 function computeTax(kapEr, etfPrevValue, basiszins, freibetrag, t, teilfreistellung){
