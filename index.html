@@ -271,10 +271,42 @@
       <div class="section-div"></div>
       <div class="mini-h">Solaranlage im Detail</div>
       <div class="field">
-        <div class="field-label"><span>Autarkiegrad</span><span class="val" id="v_a">63 %</span></div>
-        <input type="range" id="a" min="0" max="100" step="1" value="63">
-        <div class="field-sub">Anteil des Verbrauchs, den die Anlage selbst deckt</div>
+        <div class="field-label"><span>Eingabe des PV-Ertrags</span></div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" id="pvModePctBtn" class="tax-btn active">Autarkie &amp; Einspeisung</button>
+          <button type="button" id="pvModeKwhBtn" class="tax-btn">Erzeugung &amp; Eigennutzung</button>
+        </div>
       </div>
+
+      <div id="pctModeFields">
+        <div class="field">
+          <div class="field-label"><span>Autarkiegrad</span><span class="val" id="v_a">63 %</span></div>
+          <input type="range" id="a" min="0" max="100" step="1" value="63">
+          <div class="field-sub">Anteil des Verbrauchs, den die Anlage selbst deckt</div>
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Einspeisung / Jahr</span><span class="val" id="v_F">3.080 kWh</span></div>
+          <input type="range" id="F" min="0" max="10000" step="50" value="3080">
+        </div>
+      </div>
+
+      <div id="kwhModeFields" style="display:none;">
+        <div class="field">
+          <div class="field-label"><span>Erzeugung / Jahr</span><span class="val" id="v_erzeugung">8.523 kWh</span></div>
+          <input type="range" id="erzeugung" min="0" max="20000" step="50" value="8523">
+          <div class="field-sub">Gesamte PV-Produktion laut App/Zähler</div>
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Eigennutzung / Jahr</span><span class="val" id="v_eigennutzung">5.443 kWh</span></div>
+          <input type="range" id="eigennutzung" min="0" max="20000" step="50" value="5443">
+          <div class="field-sub">Direkt selbst verbrauchter PV-Strom laut App/Zähler</div>
+        </div>
+        <div class="ev-info">
+          <div><span>Daraus errechnet: Autarkiegrad</span><span id="v_derivedAutarkie" class="val">— %</span></div>
+          <div><span>Daraus errechnet: Einspeisung</span><span id="v_derivedEinspeisung" class="val">— kWh/Jahr</span></div>
+        </div>
+      </div>
+
       <div class="field">
         <div class="field-label"><span>PV-Degradation / Jahr</span><span class="val" id="v_deg">0,4 %</span></div>
         <input type="range" id="deg" min="0" max="2" step="0.1" value="0.4">
@@ -283,10 +315,6 @@
       <div class="field">
         <div class="field-label"><span>Einspeisevergütung / kWh</span><span class="val" id="v_f">0,08 €</span></div>
         <input type="range" id="f" min="0" max="0.20" step="0.005" value="0.08">
-      </div>
-      <div class="field">
-        <div class="field-label"><span>Einspeisung / Jahr</span><span class="val" id="v_F">3.080 kWh</span></div>
-        <input type="range" id="F" min="0" max="10000" step="50" value="3080">
       </div>
       <div class="field">
         <div class="field-label"><span>Wartungskosten / Jahr</span><span class="val" id="v_m">100 €</span></div>
@@ -420,7 +448,7 @@
 </div>
 
 <script>
-const ids=['I0','E','p0','g','r','t','a','f','F','m','s','years','deg','basiszins','freibetrag','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare'];
+const ids=['I0','E','p0','g','r','t','a','f','F','m','s','years','deg','basiszins','freibetrag','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare','erzeugung','eigennutzung'];
 const els={}; ids.forEach(id=>els[id]=document.getElementById(id));
 let evEnabled=false;
 const evToggle=document.getElementById('evToggle');
@@ -436,6 +464,24 @@ const compareToggle=document.getElementById('compareToggle');
 compareToggle.addEventListener('click', ()=>{
   showCompare=!showCompare;
   compareToggle.setAttribute('aria-pressed', showCompare?'true':'false');
+  render();
+});
+
+let pvInputMode='pct';
+const pvModePctBtn=document.getElementById('pvModePctBtn');
+const pvModeKwhBtn=document.getElementById('pvModeKwhBtn');
+const pctModeFields=document.getElementById('pctModeFields');
+const kwhModeFields=document.getElementById('kwhModeFields');
+pvModePctBtn.addEventListener('click', ()=>{
+  pvInputMode='pct';
+  pvModePctBtn.classList.add('active'); pvModeKwhBtn.classList.remove('active');
+  pctModeFields.style.display='block'; kwhModeFields.style.display='none';
+  render();
+});
+pvModeKwhBtn.addEventListener('click', ()=>{
+  pvInputMode='kwh';
+  pvModeKwhBtn.classList.add('active'); pvModePctBtn.classList.remove('active');
+  kwhModeFields.style.display='block'; pctModeFields.style.display='none';
   render();
 });
 let taxMode='simple';
@@ -487,6 +533,24 @@ function updateLabels(){
   const evLiterYear = (+els.evKm.value)*(+els.evBenzinVerbrauch.value)/100;
   document.getElementById('v_evKwhInfo').textContent = fmtInt(evKwhYear)+' kWh/Jahr';
   document.getElementById('v_evLiterInfo').textContent = fmtInt(evLiterYear)+' l/Jahr';
+  document.getElementById('v_erzeugung').textContent = fmtInt(+els.erzeugung.value)+' kWh';
+  document.getElementById('v_eigennutzung').textContent = fmtInt(+els.eigennutzung.value)+' kWh';
+  const derived = getEffectiveAF();
+  document.getElementById('v_derivedAutarkie').textContent = fmtInt(derived.a*100)+' %';
+  document.getElementById('v_derivedEinspeisung').textContent = fmtInt(derived.F)+' kWh/Jahr';
+}
+
+function getEffectiveAF(){
+  const E = +els.E.value;
+  if(pvInputMode==='kwh'){
+    const erz = +els.erzeugung.value;
+    const eig = +els.eigennutzung.value;
+    const effEig = Math.min(eig, erz, E);
+    const aUsed = E>0 ? effEig/E : 0;
+    const FUsed = Math.max(0, erz-effEig);
+    return {a:aUsed, F:FUsed};
+  }
+  return {a:(+els.a.value)/100, F:+els.F.value};
 }
 
 function computeTax(kapEr, etfPrevValue, basiszins, freibetrag, t){
@@ -503,10 +567,11 @@ function computeTax(kapEr, etfPrevValue, basiszins, freibetrag, t){
 function computeSeries(evOverride){
   const useEv = (evOverride===undefined) ? evEnabled : evOverride;
   const I0=+els.I0.value, E=+els.E.value, p0=+els.p0.value, g=(+els.g.value)/100,
-        r=(+els.r.value)/100, t=(+els.t.value)/100, a=(+els.a.value)/100,
-        f=+els.f.value, F=+els.F.value, m=+els.m.value, s=(+els.s.value)/100,
+        r=(+els.r.value)/100, t=(+els.t.value)/100,
+        f=+els.f.value, m=+els.m.value, s=(+els.s.value)/100,
         years=+els.years.value, deg=(+els.deg.value)/100,
         basiszins=(+els.basiszins.value)/100, freibetrag=+els.freibetrag.value;
+  const {a, F} = getEffectiveAF();
   const feedInYears = 20;
 
   const evConsumption = useEv ? (+els.evKm.value)*(+els.evStromVerbrauch.value)/100 : 0;
@@ -735,6 +800,7 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   ids.forEach(id => data[id] = +els[id].value);
   data.taxMode = taxMode;
   data.evEnabled = evEnabled;
+  data.pvInputMode = pvInputMode;
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -763,6 +829,7 @@ importFileInput.addEventListener('change', (e)=>{
       });
       if(data.taxMode === 'real'){ taxRealBtn.click(); } else if(data.taxMode === 'simple'){ taxSimpleBtn.click(); }
       if(typeof data.evEnabled === 'boolean' && data.evEnabled !== evEnabled){ evToggle.click(); }
+      if(data.pvInputMode === 'kwh'){ pvModeKwhBtn.click(); } else if(data.pvInputMode === 'pct'){ pvModePctBtn.click(); }
       render();
     }catch(err){
       alert('Die Datei konnte nicht gelesen werden — ist es eine gültige JSON-Datei aus diesem Rechner?');
