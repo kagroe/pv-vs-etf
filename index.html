@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sonne oder Depot? — PV vs. ETF Vermögensrechner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e1218;
+    --bg-panel:#161d27;
+    --bg-panel-2:#1c2531;
+    --line:#2a3442;
+    --line-soft:#212a36;
+    --text:#eeece6;
+    --text-dim:#8d99a8;
+    --text-faint:#5c6a7a;
+    --gold:#22c55e;
+    --gold-dim:#15803d;
+    --teal:#4c8eff;
+    --coral:#ef6f61;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(34,197,94,0.07), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(76,142,255,0.05), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:48px 24px 80px;}
+
+  /* ---------- Header ---------- */
+  header{margin-bottom:44px;}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px var(--gold);}
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:clamp(32px,5vw,54px);
+    font-weight:600;
+    line-height:1.05;
+    margin:0 0 16px;
+    letter-spacing:-0.01em;
+    max-width:820px;
+  }
+  h1 em{font-style:normal;color:var(--gold);}
+  .lede{color:var(--text-dim);font-size:16px;max-width:620px;line-height:1.6;}
+
+  /* ---------- Layout grid ---------- */
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:22px;align-items:start;}
+  @media (max-width:900px){.grid{grid-template-columns:1fr;}}
+  @media (min-width:901px){
+    .results-col{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto;padding-right:4px;}
+  }
+
+  .panel{
+    background:var(--bg-panel);
+    border:1px solid var(--line-soft);
+    border-radius:var(--radius);
+    padding:26px;
+  }
+  .panel h2{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:13px;text-transform:uppercase;letter-spacing:.1em;
+    color:var(--text-dim);margin:0;font-weight:600;
+  }
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+  .io-buttons{display:flex;gap:8px;}
+  .io-btn{
+    background:var(--bg-panel-2);border:1px solid var(--line);color:var(--text-dim);
+    font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.03em;
+    padding:6px 10px;border-radius:7px;cursor:pointer;transition:all .15s;
+  }
+  .io-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+  /* ---------- Inputs ---------- */
+  .field{margin-bottom:20px;}
+  .field:last-child{margin-bottom:0;}
+  .field-label{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:13px;color:var(--text);margin-bottom:8px;
+  }
+  .field-label .val{
+    font-family:'JetBrains Mono',monospace;
+    color:var(--gold);font-weight:600;font-size:13px;
+  }
+  input[type=range]{
+    -webkit-appearance:none;width:100%;height:4px;border-radius:2px;
+    background:var(--line);outline:none;margin:0;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+    background:var(--gold);cursor:pointer;border:2px solid #10141a;
+    box-shadow:0 0 0 3px rgba(34,197,94,0.18);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:15px;height:15px;border-radius:50%;background:var(--gold);
+    cursor:pointer;border:2px solid #10141a;box-shadow:0 0 0 3px rgba(34,197,94,0.18);
+  }
+  .field-sub{font-size:11px;color:var(--text-faint);color:#586472;margin-top:6px;}
+  .section-div{height:1px;background:var(--line-soft);margin:24px 0;}
+  .tax-btn{
+    flex:1;background:var(--bg-panel-2);border:1px solid var(--line);color:var(--text-dim);
+    font-family:'Inter',sans-serif;font-size:12.5px;font-weight:500;padding:9px 10px;border-radius:8px;
+    cursor:pointer;transition:all .15s;
+  }
+  .tax-btn.active{background:rgba(34,197,94,0.12);border-color:var(--gold);color:var(--gold);}
+  .tax-btn:hover{border-color:var(--gold);}
+  .mini-h{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#586472;margin:0 0 16px;}
+  .mini-h-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .toggle-switch{
+    position:relative;width:38px;height:21px;border-radius:11px;background:var(--line);
+    border:1px solid var(--line);cursor:pointer;flex-shrink:0;transition:background .15s;padding:0;
+  }
+  .toggle-switch .knob{
+    position:absolute;top:1px;left:1px;width:17px;height:17px;border-radius:50%;
+    background:var(--text-dim);transition:transform .15s, background .15s;
+  }
+  .toggle-switch[aria-pressed="true"]{background:rgba(34,197,94,0.25);border-color:var(--gold);}
+  .toggle-switch[aria-pressed="true"] .knob{transform:translateX(17px);background:var(--gold);}
+
+  /* ---------- Signature readout ---------- */
+  .readout{
+    background:linear-gradient(160deg, var(--bg-panel-2), var(--bg-panel));
+    border:1px solid var(--line-soft);
+    border-radius:var(--radius);
+    padding:30px 30px 26px;
+    margin-bottom:22px;
+    display:grid;
+    grid-template-columns:auto 1fr;
+    gap:32px;
+    align-items:center;
+  }
+  @media (max-width:700px){.readout{grid-template-columns:1fr;text-align:center;}}
+  .dial{position:relative;width:150px;height:150px;flex-shrink:0;margin:0 auto;}
+  .dial svg{width:100%;height:100%;transform:rotate(-90deg);}
+  .dial-num{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .dial-num .n{font-family:'JetBrains Mono',monospace;font-size:34px;font-weight:700;color:var(--gold);line-height:1;}
+  .dial-num .u{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;}
+  .readout-copy .k{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin:0 0 8px;}
+  .readout-copy .headline{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;margin:0 0 10px;line-height:1.3;}
+  .readout-copy .headline .hl{color:var(--gold);}
+  .readout-copy p{margin:0;color:var(--text-dim);font-size:14px;line-height:1.6;}
+
+  /* ---------- Stat cards ---------- */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+  @media (max-width:900px){.stats{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:520px){.stats{grid-template-columns:1fr;}}
+  .stat{
+    background:var(--bg-panel);border:1px solid var(--line-soft);border-radius:var(--radius);
+    padding:20px 20px 18px;border-top:3px solid var(--line);
+  }
+  .stat.gold{border-top-color:var(--gold);}
+  .stat.teal{border-top-color:var(--teal);}
+  .stat.coral{border-top-color:var(--coral);}
+  .stat.amort{border-top-color:#a78bfa;}
+  .stat .lbl{font-size:12px;color:var(--text-dim);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .dot.gold{background:var(--gold);} .dot.teal{background:var(--teal);} .dot.coral{background:var(--coral);}
+  .dot.amort{background:#a78bfa;}
+  .dot-dash{width:16px;height:0;border-top:2px dashed var(--text-dim);flex-shrink:0;}
+  .ev-info{
+    background:var(--bg-panel-2);border:1px solid var(--line-soft);border-radius:10px;
+    padding:12px 14px;margin:4px 0 20px;display:flex;flex-direction:column;gap:6px;
+  }
+  .ev-info div{display:flex;justify-content:space-between;font-size:12.5px;color:var(--text-dim);}
+  .ev-info .val{font-family:'JetBrains Mono',monospace;color:var(--gold);font-weight:600;}
+  .stat .num{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;color:var(--text);}
+  .stat .num.neg{color:var(--coral);}
+  .stat .stat-sub{font-size:11.5px;color:var(--text-faint);margin-top:6px;}
+
+  /* ---------- Chart ---------- */
+  .chart-panel{background:var(--bg-panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:26px;margin-bottom:22px;}
+  .chart-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:12px;}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;}
+  .legend-item{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-dim);}
+  #chartSvg{width:100%;height:auto;display:block;overflow:visible;}
+  .chart-tooltip{
+    position:absolute;background:#0b0e13;border:1px solid var(--line);border-radius:8px;
+    padding:10px 12px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .1s;
+    font-family:'JetBrains Mono',monospace;z-index:5;white-space:nowrap;
+  }
+  .chart-tooltip .row{display:flex;justify-content:space-between;gap:14px;margin:3px 0;}
+  .chart-wrap{position:relative;}
+
+  footer{color:var(--text-faint);color:#586472;font-size:12.5px;line-height:1.7;margin-top:8px;max-width:760px;}
+  footer a{color:var(--text-dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Vermögensrechner · Photovoltaik &amp; ETF</div>
+    <h1>Sonne aufs Dach — oder <em>Geld ins Depot?</em></h1>
+    <p class="lede">Ein Rechner, der drei Wege vergleicht, dieselbe Summe einzusetzen: eine PV-Anlage kaufen, alles in einen ETF stecken, oder gar nichts investieren. Stell deine Zahlen ein und sieh, wann sich was rechnet.</p>
+  </header>
+
+  <div class="grid">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Deine Annahmen</h2>
+        <div class="io-buttons">
+          <button type="button" id="exportBtn" class="io-btn" title="Aktuelle Werte als JSON speichern">Export</button>
+          <button type="button" id="importBtn" class="io-btn" title="Werte aus JSON-Datei laden">Import</button>
+          <input type="file" id="importFile" accept="application/json,.json" style="display:none;">
+        </div>
+      </div>
+
+      <div class="mini-h">Investition &amp; Verbrauch</div>
+      <div class="field">
+        <div class="field-label"><span>PV-Investition</span><span class="val" id="v_I0">11.000 €</span></div>
+        <input type="range" id="I0" min="2000" max="40000" step="500" value="11000">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Stromverbrauch / Jahr</span><span class="val" id="v_E">8.640 kWh</span></div>
+        <input type="range" id="E" min="1000" max="20000" step="100" value="8640">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Stromkosten / kWh</span><span class="val" id="v_p0">0,34 €</span></div>
+        <input type="range" id="p0" min="0.10" max="0.60" step="0.01" value="0.34">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Preissteigerung / Jahr</span><span class="val" id="v_g">1,0 %</span></div>
+        <input type="range" id="g" min="0" max="8" step="0.5" value="1">
+      </div>
+
+      <div class="section-div"></div>
+      <div class="mini-h">ETF-Depot</div>
+      <div class="field">
+        <div class="field-label"><span>Rendite / Jahr</span><span class="val" id="v_r">7,0 %</span></div>
+        <input type="range" id="r" min="0" max="12" step="0.5" value="7">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Kapitalertragsteuer</span><span class="val" id="v_t">25,0 %</span></div>
+        <input type="range" id="t" min="0" max="45" step="0.5" value="25">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Besteuerungsmodell</span></div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" id="taxSimpleBtn" class="tax-btn active">Einfach</button>
+          <button type="button" id="taxRealBtn" class="tax-btn">Realistisch</button>
+        </div>
+        <div class="field-sub" id="taxModeExplain">Volle Kursgewinne werden jährlich besteuert.</div>
+      </div>
+      <div id="realTaxFields" style="display:none;">
+        <div class="field">
+          <div class="field-label"><span>Basiszins (Vorabpauschale)</span><span class="val" id="v_basiszins">2,5 %</span></div>
+          <input type="range" id="basiszins" min="0" max="5" step="0.1" value="2.5">
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Sparerpauschbetrag / Jahr</span><span class="val" id="v_freibetrag">1.000 €</span></div>
+          <input type="range" id="freibetrag" min="0" max="2000" step="50" value="1000">
+        </div>
+      </div>
+
+      <div class="section-div"></div>
+      <div class="mini-h">Solaranlage im Detail</div>
+      <div class="field">
+        <div class="field-label"><span>Autarkiegrad</span><span class="val" id="v_a">63 %</span></div>
+        <input type="range" id="a" min="0" max="100" step="1" value="63">
+        <div class="field-sub">Anteil des Verbrauchs, den die Anlage selbst deckt</div>
+      </div>
+      <div class="field">
+        <div class="field-label"><span>PV-Degradation / Jahr</span><span class="val" id="v_deg">0,4 %</span></div>
+        <input type="range" id="deg" min="0" max="2" step="0.1" value="0.4">
+        <div class="field-sub">Jährlicher Leistungsverlust der Module — reduziert Autarkie &amp; Einspeisung über die Zeit</div>
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Einspeisevergütung / kWh</span><span class="val" id="v_f">0,08 €</span></div>
+        <input type="range" id="f" min="0" max="0.20" step="0.005" value="0.08">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Einspeisung / Jahr</span><span class="val" id="v_F">3.080 kWh</span></div>
+        <input type="range" id="F" min="0" max="10000" step="50" value="3080">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Wartungskosten / Jahr</span><span class="val" id="v_m">100 €</span></div>
+        <input type="range" id="m" min="0" max="500" step="10" value="100">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Reinvestitionsanteil</span><span class="val" id="v_s">100 %</span></div>
+        <input type="range" id="s" min="0" max="100" step="5" value="100">
+        <div class="field-sub">Anteil von Ersparnis &amp; Einspeisevergütung, der in ETFs fließt</div>
+      </div>
+
+      <div class="section-div"></div>
+      <div class="mini-h-row">
+        <div class="mini-h" style="margin-bottom:0;">E-Auto (optional)</div>
+        <button type="button" id="evToggle" class="toggle-switch" aria-pressed="false"><span class="knob"></span></button>
+      </div>
+      <div id="evFields" style="display:none;">
+        <div class="field">
+          <div class="field-label"><span>Fahrleistung / Jahr</span><span class="val" id="v_evKm">12.000 km</span></div>
+          <input type="range" id="evKm" min="0" max="30000" step="500" value="12000">
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Stromverbrauch E-Auto</span><span class="val" id="v_evStromVerbrauch">18,0 kWh/100km</span></div>
+          <input type="range" id="evStromVerbrauch" min="10" max="30" step="0.5" value="18">
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Verbrauch Verbrenner</span><span class="val" id="v_evBenzinVerbrauch">7,0 l/100km</span></div>
+          <input type="range" id="evBenzinVerbrauch" min="3" max="15" step="0.1" value="7">
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Kraftstoffpreis</span><span class="val" id="v_fuelPrice">1,75 €/l</span></div>
+          <input type="range" id="fuelPrice" min="1.20" max="2.50" step="0.01" value="1.75">
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Kraftstoff-Preissteigerung / Jahr</span><span class="val" id="v_fuelIncrease">2,0 %</span></div>
+          <input type="range" id="fuelIncrease" min="0" max="8" step="0.5" value="2">
+        </div>
+        <div class="ev-info">
+          <div><span>Ladebedarf</span><span id="v_evKwhInfo" class="val">— kWh/Jahr</span></div>
+          <div><span>Kraftstoffverbrauch</span><span id="v_evLiterInfo" class="val">— l/Jahr</span></div>
+        </div>
+        <div class="field">
+          <div class="field-label"><span>PV-Eigenverbrauch beim Laden</span><span class="val" id="v_evPvShare">50 %</span></div>
+          <input type="range" id="evPvShare" min="0" max="100" step="5" value="50">
+          <div class="field-sub">Anteil des Ladestroms, der aus eigener PV kommt (nur PV+ETF)</div>
+        </div>
+        <div class="mini-h-row" style="margin-top:20px;">
+          <div class="field-sub" style="margin-top:0;">Verbrenner-Vergleich einblenden</div>
+          <button type="button" id="compareToggle" class="toggle-switch" aria-pressed="false"><span class="knob"></span></button>
+        </div>
+      </div>
+
+      <div class="section-div"></div>
+      <div class="field">
+        <div class="field-label"><span>Betrachtungszeitraum</span><span class="val" id="v_years">30 Jahre</span></div>
+        <input type="range" id="years" min="5" max="40" step="1" value="30">
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results-col">
+      <div class="readout">
+        <div class="dial">
+          <svg viewBox="0 0 150 150">
+            <circle cx="75" cy="75" r="62" fill="none" stroke="#232c38" stroke-width="10"/>
+            <circle id="dialArc" cx="75" cy="75" r="62" fill="none" stroke="url(#dialGrad)" stroke-width="10" stroke-linecap="round" stroke-dasharray="389.6" stroke-dashoffset="389.6"/>
+            <defs>
+              <linearGradient id="dialGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#22c55e"/>
+                <stop offset="100%" stop-color="#4c8eff"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="dial-num">
+            <div class="n" id="breakevenYear">—</div>
+            <div class="u">Jahr</div>
+          </div>
+        </div>
+        <div class="readout-copy">
+          <p class="k">Break-even</p>
+          <p class="headline" id="breakevenHeadline">PV+ETF zieht in Jahr <span class="hl">—</span> am reinen ETF-Depot vorbei.</p>
+          <p id="breakevenSub">Ab hier lohnt sich die Kombination aus Dach und Depot rechnerisch mehr als das Depot allein — bezogen auf den gewählten Zeitraum und deine Annahmen.</p>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat amort">
+          <div class="lbl"><span class="dot amort"></span>PV-Amortisation</div>
+          <div class="num" id="stat_amort">—</div>
+          <div class="stat-sub" id="stat_amort_sub"></div>
+        </div>
+        <div class="stat gold">
+          <div class="lbl"><span class="dot gold"></span>PV + ETF</div>
+          <div class="num" id="stat_pvetf">—</div>
+        </div>
+        <div class="stat teal">
+          <div class="lbl"><span class="dot teal"></span>Nur ETF</div>
+          <div class="num" id="stat_etf">—</div>
+        </div>
+        <div class="stat coral">
+          <div class="lbl"><span class="dot coral"></span>Keine Investition</div>
+          <div class="num" id="stat_none">—</div>
+        </div>
+      </div>
+
+      <div class="chart-panel">
+        <div class="chart-head">
+          <div>
+            <div class="mini-h" style="margin-bottom:4px;">Vermögensentwicklung</div>
+          </div>
+          <div class="legend" id="legendMain">
+            <div class="legend-item"><span class="dot gold"></span>PV + ETF</div>
+            <div class="legend-item"><span class="dot teal"></span>Nur ETF</div>
+            <div class="legend-item"><span class="dot coral"></span>Keine Investition</div>
+          </div>
+          <div class="legend" id="legendCompare" style="display:none;">
+            <div class="legend-item"><span class="dot-dash"></span>gestrichelt = mit Verbrenner statt E-Auto</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <svg id="chartSvg" viewBox="0 0 900 380"></svg>
+          <div class="chart-tooltip" id="tooltip"></div>
+        </div>
+      </div>
+
+      <footer>
+        Modell: Beim reinen ETF-Depot wird die Investitionssumme angelegt, während die vollen Stromkosten sowie die jährliche Kapitalertragsteuer auf dem Girokonto verrechnet werden. Bei PV+ETF ersetzt die Anlage die Investition; jährliche Stromersparnis und Einspeisevergütung fließen (anteilig) ins Depot, verbleibende Stromkosten und Wartung werden gegengerechnet. Die Einspeisevergütung wird für die ersten 20 Jahre angesetzt. Alle Werte sind eine vereinfachte Modellrechnung, keine Anlage- oder Steuerberatung.
+      </footer>
+    </div>
+  </div>
+</div>
+
+<script>
+const ids=['I0','E','p0','g','r','t','a','f','F','m','s','years','deg','basiszins','freibetrag','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare'];
+const els={}; ids.forEach(id=>els[id]=document.getElementById(id));
+let evEnabled=false;
+const evToggle=document.getElementById('evToggle');
+const evFields=document.getElementById('evFields');
+evToggle.addEventListener('click', ()=>{
+  evEnabled=!evEnabled;
+  evToggle.setAttribute('aria-pressed', evEnabled?'true':'false');
+  evFields.style.display = evEnabled?'block':'none';
+  render();
+});
+let showCompare=false;
+const compareToggle=document.getElementById('compareToggle');
+compareToggle.addEventListener('click', ()=>{
+  showCompare=!showCompare;
+  compareToggle.setAttribute('aria-pressed', showCompare?'true':'false');
+  render();
+});
+let taxMode='simple';
+const taxSimpleBtn=document.getElementById('taxSimpleBtn');
+const taxRealBtn=document.getElementById('taxRealBtn');
+const realTaxFields=document.getElementById('realTaxFields');
+const taxModeExplain=document.getElementById('taxModeExplain');
+taxSimpleBtn.addEventListener('click',()=>{
+  taxMode='simple'; taxSimpleBtn.classList.add('active'); taxRealBtn.classList.remove('active');
+  realTaxFields.style.display='none';
+  taxModeExplain.textContent='Volle Kursgewinne werden jährlich besteuert.';
+  render();
+});
+taxRealBtn.addEventListener('click',()=>{
+  taxMode='real'; taxRealBtn.classList.add('active'); taxSimpleBtn.classList.remove('active');
+  realTaxFields.style.display='block';
+  taxModeExplain.textContent='Vorabpauschale auf Basiszins, abzüglich Sparerpauschbetrag — näher an der echten Depotbesteuerung.';
+  render();
+});
+
+const fmtEUR = n => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+const fmtEUR2 = n => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(n);
+const fmtInt = n => new Intl.NumberFormat('de-DE').format(Math.round(n));
+const fmtYear = n => n.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1});
+
+function updateLabels(){
+  document.getElementById('v_I0').textContent = fmtEUR(+els.I0.value);
+  document.getElementById('v_E').textContent = fmtInt(+els.E.value)+' kWh';
+  document.getElementById('v_p0').textContent = (+els.p0.value).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+  document.getElementById('v_g').textContent = (+els.g.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
+  document.getElementById('v_r').textContent = (+els.r.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
+  document.getElementById('v_t').textContent = (+els.t.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
+  document.getElementById('v_a').textContent = fmtInt(+els.a.value)+' %';
+  document.getElementById('v_f').textContent = (+els.f.value).toLocaleString('de-DE',{minimumFractionDigits:3})+' €';
+  document.getElementById('v_F').textContent = fmtInt(+els.F.value)+' kWh';
+  document.getElementById('v_m').textContent = fmtEUR(+els.m.value);
+  document.getElementById('v_s').textContent = fmtInt(+els.s.value)+' %';
+  document.getElementById('v_years').textContent = els.years.value+' Jahre';
+  document.getElementById('v_deg').textContent = (+els.deg.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
+  document.getElementById('v_basiszins').textContent = (+els.basiszins.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
+  document.getElementById('v_freibetrag').textContent = fmtEUR(+els.freibetrag.value);
+  document.getElementById('v_evKm').textContent = fmtInt(+els.evKm.value)+' km';
+  document.getElementById('v_evStromVerbrauch').textContent = (+els.evStromVerbrauch.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' kWh/100km';
+  document.getElementById('v_evBenzinVerbrauch').textContent = (+els.evBenzinVerbrauch.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' l/100km';
+  document.getElementById('v_fuelPrice').textContent = (+els.fuelPrice.value).toLocaleString('de-DE',{minimumFractionDigits:2})+' €/l';
+  document.getElementById('v_fuelIncrease').textContent = (+els.fuelIncrease.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
+  document.getElementById('v_evPvShare').textContent = fmtInt(+els.evPvShare.value)+' %';
+  const evKwhYear = (+els.evKm.value)*(+els.evStromVerbrauch.value)/100;
+  const evLiterYear = (+els.evKm.value)*(+els.evBenzinVerbrauch.value)/100;
+  document.getElementById('v_evKwhInfo').textContent = fmtInt(evKwhYear)+' kWh/Jahr';
+  document.getElementById('v_evLiterInfo').textContent = fmtInt(evLiterYear)+' l/Jahr';
+}
+
+function computeTax(kapEr, etfPrevValue, basiszins, freibetrag, t){
+  if(taxMode==='simple'){
+    return kapEr*t;
+  }
+  // Realistisch: Vorabpauschale = Depotwert * Basiszins * 0.7, gedeckelt auf den realen Gewinn.
+  // Sparerpauschbetrag mindert die steuerpflichtige Bemessungsgrundlage, Rest wird mit t versteuert.
+  const vorab = Math.max(0, Math.min(kapEr, etfPrevValue*basiszins*0.7));
+  const steuerpflichtig = Math.max(0, vorab - freibetrag);
+  return steuerpflichtig*t;
+}
+
+function computeSeries(evOverride){
+  const useEv = (evOverride===undefined) ? evEnabled : evOverride;
+  const I0=+els.I0.value, E=+els.E.value, p0=+els.p0.value, g=(+els.g.value)/100,
+        r=(+els.r.value)/100, t=(+els.t.value)/100, a=(+els.a.value)/100,
+        f=+els.f.value, F=+els.F.value, m=+els.m.value, s=(+els.s.value)/100,
+        years=+els.years.value, deg=(+els.deg.value)/100,
+        basiszins=(+els.basiszins.value)/100, freibetrag=+els.freibetrag.value;
+  const feedInYears = 20;
+
+  const evConsumption = useEv ? (+els.evKm.value)*(+els.evStromVerbrauch.value)/100 : 0;
+  const evPvShare = useEv ? (+els.evPvShare.value)/100 : 0;
+  const evLiterYear = useEv ? (+els.evKm.value)*(+els.evBenzinVerbrauch.value)/100 : 0;
+  const fuelPrice0 = +els.fuelPrice.value;
+  const fuelIncrease = (+els.fuelIncrease.value)/100;
+
+  let etf = {ETF:I0, Giro:0};
+  let pv = {ETF:0, Giro:0};
+  let none = {Giro:I0};
+
+  const series = { etf:[I0], pv:[0], none:[I0] };
+
+  for(let n=1;n<=years;n++){
+    const price = p0*Math.pow(1+g,n-1);
+    const fuelPrice = fuelPrice0*Math.pow(1+fuelIncrease,n-1);
+    const evFuelSavings = evLiterYear*fuelPrice;
+    const degFactor = Math.pow(1-deg, n-1); // PV-Ertrag sinkt über die Jahre
+    const aEff = a*degFactor;
+    const evPvShareEff = evPvShare*degFactor; // weniger PV-Überschuss fürs Laden bei sinkendem Ertrag
+
+    // ETF alone — E-Auto lädt komplett aus dem Netz, aber Spritkosten entfallen
+    const kapEr = etf.ETF*r;
+    const kapSt = computeTax(kapEr, etf.ETF, basiszins, freibetrag, t);
+    const strom = E*price + evConsumption*price;
+    etf.Giro = etf.Giro - strom - kapSt + evFuelSavings;
+    etf.ETF = etf.ETF + kapEr;
+    series.etf.push(etf.Giro+etf.ETF);
+
+    // PV + ETF — Teil des Ladestroms kommt aus eigener PV
+    const ersparnis = E*price*aEff + evConsumption*price*evPvShareEff;
+    const einspeise = n<=feedInYears ? f*F*degFactor : 0;
+    const kapEr2 = pv.ETF*r;
+    const kapSt2 = computeTax(kapEr2, pv.ETF, basiszins, freibetrag, t);
+    const restkosten = E*price*(1-aEff) + evConsumption*price*(1-evPvShareEff) + m;
+    pv.ETF = pv.ETF + kapEr2 + s*ersparnis + s*einspeise;
+    pv.Giro = pv.Giro - kapSt2 - restkosten + (1-s)*einspeise - s*ersparnis + evFuelSavings;
+    series.pv.push(pv.Giro+pv.ETF);
+
+    // none — E-Auto lädt komplett aus dem Netz, aber Spritkosten entfallen
+    const strom3 = E*price + evConsumption*price;
+    none.Giro = none.Giro - strom3 + evFuelSavings;
+    series.none.push(none.Giro);
+  }
+
+  // Amortisation = tatsächlicher Schnittpunkt der PV+ETF- und der Keine-Investition-Kurve
+  series.amortYear = findCrossing(series.pv, series.none);
+  series.feedInYears = feedInYears;
+  return series;
+}
+
+function findCrossing(arrA, arrB){
+  if(arrA[0] >= arrB[0]) return 0;
+  for(let i=1;i<arrA.length;i++){
+    const dPrev = arrA[i-1]-arrB[i-1];
+    const dCurr = arrA[i]-arrB[i];
+    if(dCurr >= 0){
+      if(dCurr === dPrev) return i;
+      const frac = -dPrev/(dCurr-dPrev); // linear interpolation between the two yearly points
+      return (i-1)+frac;
+    }
+  }
+  return null;
+}
+
+function findBreakeven(series){
+  return findCrossing(series.pv, series.etf);
+}
+
+function drawChart(series, compareSeries){
+  const svg = document.getElementById('chartSvg');
+  const W=900,H=380, padL=64,padR=20,padT=28,padB=66;
+  const years = series.pv.length-1;
+  const all = [...series.pv, ...series.etf, ...series.none];
+  if(compareSeries){ all.push(...compareSeries.pv, ...compareSeries.etf, ...compareSeries.none); }
+  const minV = Math.min(0, ...all);
+  const maxV = Math.max(...all);
+  const range = maxV-minV || 1;
+
+  const x = i => padL + (i/years)*(W-padL-padR);
+  const y = v => padT + (1 - (v-minV)/range)*(H-padT-padB);
+
+  const mkPath = arr => arr.map((v,i)=> (i===0?'M':'L') + x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
+
+  let svgContent = '';
+
+  // grid + y labels
+  const gridSteps=5;
+  for(let gi=0; gi<=gridSteps; gi++){
+    const val = minV + (range*gi/gridSteps);
+    const yy = y(val);
+    svgContent += `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W-padR}" y2="${yy.toFixed(1)}" stroke="#212a36" stroke-width="1"/>`;
+    svgContent += `<text x="${padL-10}" y="${(yy+4).toFixed(1)}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="11" fill="#5c6a7a">${(val/1000).toFixed(0)}k</text>`;
+  }
+  // zero line emphasis
+  if(minV<0 && maxV>0){
+    svgContent += `<line x1="${padL}" y1="${y(0).toFixed(1)}" x2="${W-padR}" y2="${y(0).toFixed(1)}" stroke="#3a4658" stroke-width="1.5"/>`;
+  }
+  // x labels every ~5 years
+  const step = years>20?5:(years>10?2:1);
+  for(let yr=0; yr<=years; yr+=step){
+    svgContent += `<text x="${x(yr).toFixed(1)}" y="${H-padB+20}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#5c6a7a">${yr}</text>`;
+  }
+
+  svgContent += `<path d="${mkPath(series.none)}" fill="none" stroke="#ef6f61" stroke-width="2" opacity="0.85"/>`;
+  svgContent += `<path d="${mkPath(series.etf)}" fill="none" stroke="#4c8eff" stroke-width="2.2"/>`;
+  svgContent += `<path d="${mkPath(series.pv)}" fill="none" stroke="#22c55e" stroke-width="2.6"/>`;
+
+  if(compareSeries){
+    svgContent += `<path d="${mkPath(compareSeries.none)}" fill="none" stroke="#ef6f61" stroke-width="1.6" stroke-dasharray="5,4" opacity="0.55"/>`;
+    svgContent += `<path d="${mkPath(compareSeries.etf)}" fill="none" stroke="#4c8eff" stroke-width="1.6" stroke-dasharray="5,4" opacity="0.55"/>`;
+    svgContent += `<path d="${mkPath(compareSeries.pv)}" fill="none" stroke="#22c55e" stroke-width="1.8" stroke-dasharray="5,4" opacity="0.55"/>`;
+  }
+
+  if(series.amortYear){
+    const ax = x(series.amortYear);
+    svgContent += `<line x1="${ax.toFixed(1)}" y1="${padT}" x2="${ax.toFixed(1)}" y2="${H-padB}" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="4,4" opacity="0.8"/>`;
+    svgContent += `<text x="${ax.toFixed(1)}" y="${padT-6}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#a78bfa">PV amortisiert</text>`;
+  }
+  if(series.feedInYears && series.feedInYears <= years){
+    const fx = x(series.feedInYears);
+    svgContent += `<line x1="${fx.toFixed(1)}" y1="${padT}" x2="${fx.toFixed(1)}" y2="${H-padB}" stroke="#c99a3d" stroke-width="1.4" stroke-dasharray="2,3" opacity="0.7"/>`;
+    svgContent += `<text x="${fx.toFixed(1)}" y="${H-padB+36}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#c99a3d">Einspeiseverg. endet</text>`;
+  }
+  if(series.breakevenYear){
+    const bx = x(series.breakevenYear);
+    svgContent += `<line x1="${bx.toFixed(1)}" y1="${padT}" x2="${bx.toFixed(1)}" y2="${H-padB}" stroke="#4c8eff" stroke-width="1.4" stroke-dasharray="6,3" opacity="0.8"/>`;
+    svgContent += `<text x="${bx.toFixed(1)}" y="${H-padB+52}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#4c8eff">PV+ETF überholt ETF</text>`;
+  }
+
+  svg.innerHTML = svgContent;
+  svg._meta = {padL,padR,padT,padB,W,H,minV,maxV,range,years,series,compareSeries};
+}
+
+function setupHover(){
+  const svg = document.getElementById('chartSvg');
+  const tooltip = document.getElementById('tooltip');
+  const wrap = svg.parentElement;
+
+  svg.addEventListener('mousemove', e=>{
+    const meta = svg._meta; if(!meta) return;
+    const rect = svg.getBoundingClientRect();
+    const relX = (e.clientX-rect.left)/rect.width*meta.W;
+    let yr = Math.round( (relX-meta.padL) / (meta.W-meta.padL-meta.padR) * meta.years );
+    yr = Math.max(0, Math.min(meta.years, yr));
+    const s = meta.series;
+    let html = `<div style="color:#8d99a8;margin-bottom:4px;">Jahr ${yr}</div>
+      <div class="row"><span style="color:#22c55e;">PV+ETF</span><span>${fmtEUR(s.pv[yr])}</span></div>
+      <div class="row"><span style="color:#4c8eff;">Nur ETF</span><span>${fmtEUR(s.etf[yr])}</span></div>
+      <div class="row"><span style="color:#ef6f61;">Keine Inv.</span><span>${fmtEUR(s.none[yr])}</span></div>`;
+    if(meta.compareSeries){
+      const c = meta.compareSeries;
+      html += `<div style="color:#8d99a8;margin:6px 0 3px;border-top:1px solid #2a3442;padding-top:5px;">mit Verbrenner</div>
+      <div class="row"><span style="color:#22c55e;opacity:.7;">PV+ETF</span><span>${fmtEUR(c.pv[yr])}</span></div>
+      <div class="row"><span style="color:#4c8eff;opacity:.7;">Nur ETF</span><span>${fmtEUR(c.etf[yr])}</span></div>
+      <div class="row"><span style="color:#ef6f61;opacity:.7;">Keine Inv.</span><span>${fmtEUR(c.none[yr])}</span></div>`;
+    }
+    tooltip.innerHTML = html;
+    const wrapRect = wrap.getBoundingClientRect();
+    let left = e.clientX-wrapRect.left+14;
+    let top = e.clientY-wrapRect.top-10;
+    if(left + 170 > wrapRect.width) left = e.clientX-wrapRect.left-190;
+    tooltip.style.left = left+'px';
+    tooltip.style.top = top+'px';
+    tooltip.style.opacity='1';
+  });
+  svg.addEventListener('mouseleave', ()=> tooltip.style.opacity='0');
+}
+
+function render(){
+  updateLabels();
+  const series = computeSeries();
+  const years = series.pv.length-1;
+
+  const amortEl = document.getElementById('stat_amort');
+  const amortSub = document.getElementById('stat_amort_sub');
+  if(series.amortYear){
+    amortEl.textContent = 'Jahr ' + fmtYear(series.amortYear);
+    amortEl.classList.remove('neg');
+    amortSub.textContent = 'Ab hier steht man mit PV+ETF besser da als ohne jede Investition.';
+  } else {
+    amortEl.textContent = '> ' + years;
+    amortSub.textContent = 'Im gewählten Zeitraum noch nicht erreicht.';
+  }
+
+  document.getElementById('stat_pvetf').textContent = fmtEUR(series.pv[years]);
+  document.getElementById('stat_pvetf').classList.toggle('neg', series.pv[years]<0);
+  document.getElementById('stat_etf').textContent = fmtEUR(series.etf[years]);
+  document.getElementById('stat_etf').classList.toggle('neg', series.etf[years]<0);
+  document.getElementById('stat_none').textContent = fmtEUR(series.none[years]);
+  document.getElementById('stat_none').classList.toggle('neg', series.none[years]<0);
+
+  const be = findBreakeven(series);
+  series.breakevenYear = be;
+  const dialArc = document.getElementById('dialArc');
+  const circumference = 389.6;
+  if(be){
+    document.getElementById('breakevenYear').textContent = fmtYear(be);
+    document.getElementById('breakevenHeadline').innerHTML = `PV+ETF zieht in Jahr <span class="hl">${fmtYear(be)}</span> am reinen ETF-Depot vorbei.`;
+    const progress = Math.max(0, Math.min(1, 1-(be/years)));
+    dialArc.style.strokeDashoffset = circumference*(1-Math.min(1,be/years));
+  } else {
+    document.getElementById('breakevenYear').textContent = '—';
+    document.getElementById('breakevenHeadline').innerHTML = `Im gewählten Zeitraum zieht PV+ETF <span class="hl">nicht</span> am reinen ETF-Depot vorbei.`;
+    dialArc.style.strokeDashoffset = circumference;
+  }
+
+  document.getElementById('legendCompare').style.display = (evEnabled && showCompare) ? 'flex' : 'none';
+  const compareSeries = (evEnabled && showCompare) ? computeSeries(false) : null;
+
+  drawChart(series, compareSeries);
+}
+
+ids.forEach(id=> els[id].addEventListener('input', render));
+
+// ---- Export / Import ----
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const data = {};
+  ids.forEach(id => data[id] = +els[id].value);
+  data.taxMode = taxMode;
+  data.evEnabled = evEnabled;
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'pv-etf-rechner-eingaben.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+const importFileInput = document.getElementById('importFile');
+document.getElementById('importBtn').addEventListener('click', ()=> importFileInput.click());
+importFileInput.addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const data = JSON.parse(ev.target.result);
+      ids.forEach(id=>{
+        if(data.hasOwnProperty(id) && els[id]){
+          const v = Math.max(+els[id].min, Math.min(+els[id].max, +data[id]));
+          els[id].value = v;
+        }
+      });
+      if(data.taxMode === 'real'){ taxRealBtn.click(); } else if(data.taxMode === 'simple'){ taxSimpleBtn.click(); }
+      if(typeof data.evEnabled === 'boolean' && data.evEnabled !== evEnabled){ evToggle.click(); }
+      render();
+    }catch(err){
+      alert('Die Datei konnte nicht gelesen werden — ist es eine gültige JSON-Datei aus diesem Rechner?');
+    }
+    importFileInput.value = '';
+  };
+  reader.readAsText(file);
+});
+setupHover();
+render();
+</script>
+</body>
+</html>
