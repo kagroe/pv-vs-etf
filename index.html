@@ -609,7 +609,9 @@ function computeSeries(evOverride){
   let etfCostBasis = I0;  // steuerliche Anschaffungskosten (wächst durch versteuerte Vorabpauschale)
   let pvCostBasis = 0;
 
-  const series = { etf:[I0], pv:[0], none:[I0], etfGross:[I0], pvGross:[0] };
+  const series = { etf:[I0], pv:[0], none:[I0], etfGross:[I0], pvGross:[0],
+    etfGiro:[0], etfDepotGross:[I0], etfDepotNet:[I0],
+    pvGiro:[0], pvDepotGross:[0], pvDepotNet:[0] };
 
   for(let n=1;n<=years;n++){
     const price = p0*Math.pow(1+g,n-1);
@@ -642,26 +644,29 @@ function computeSeries(evOverride){
     pv.Giro = pv.Giro - taxRes2.tax - restkosten + (1-s)*einspeise - s*ersparnis + evFuelSavings;
     pvCostBasis += taxRes2.vorabGross + s*ersparnis + s*einspeise;
 
+    let embeddedTaxEtf = 0, embeddedTaxPv = 0;
     if(taxMode==='real'){
       // "Wenn ich heute alles verkaufen würde": verbleibende Steuerschuld auf den nicht
       // bereits über die Vorabpauschale versteuerten Gewinn, abzüglich Restfreibetrag.
       const remAllowEtf = Math.max(0, freibetrag - taxRes.usedAllowance);
       const gainEtf = Math.max(0, etf.ETF - etfCostBasis)*(1-teilfreistellung);
-      const embeddedTaxEtf = Math.max(0, gainEtf - remAllowEtf)*t;
-      series.etfGross.push(etf.Giro + etf.ETF);
-      series.etf.push(etf.Giro + etf.ETF - embeddedTaxEtf);
+      embeddedTaxEtf = Math.max(0, gainEtf - remAllowEtf)*t;
 
       const remAllowPv = Math.max(0, freibetrag - taxRes2.usedAllowance);
       const gainPv = Math.max(0, pv.ETF - pvCostBasis)*(1-teilfreistellung);
-      const embeddedTaxPv = Math.max(0, gainPv - remAllowPv)*t;
-      series.pvGross.push(pv.Giro + pv.ETF);
-      series.pv.push(pv.Giro + pv.ETF - embeddedTaxPv);
-    } else {
-      series.etf.push(etf.Giro+etf.ETF);
-      series.etfGross.push(etf.Giro+etf.ETF);
-      series.pv.push(pv.Giro+pv.ETF);
-      series.pvGross.push(pv.Giro+pv.ETF);
+      embeddedTaxPv = Math.max(0, gainPv - remAllowPv)*t;
     }
+    series.etfGross.push(etf.Giro+etf.ETF);
+    series.etf.push(etf.Giro+etf.ETF-embeddedTaxEtf);
+    series.pvGross.push(pv.Giro+pv.ETF);
+    series.pv.push(pv.Giro+pv.ETF-embeddedTaxPv);
+
+    series.etfGiro.push(etf.Giro);
+    series.etfDepotGross.push(etf.ETF);
+    series.etfDepotNet.push(etf.ETF-embeddedTaxEtf);
+    series.pvGiro.push(pv.Giro);
+    series.pvDepotGross.push(pv.ETF);
+    series.pvDepotNet.push(pv.ETF-embeddedTaxPv);
 
     // none — E-Auto lädt komplett aus dem Netz, aber Spritkosten entfallen
     const strom3 = E*price + evConsumption*price;
@@ -777,9 +782,19 @@ function setupHover(){
     const etfLine = showNetto
       ? `${fmtEUR(s.etfGross[yr])} <span style="color:#8d99a8;">(netto ${fmtEUR(s.etf[yr])})</span>`
       : fmtEUR(s.etfGross[yr]);
+    const pvDepotLine = showNetto
+      ? `${fmtEUR(s.pvDepotGross[yr])} <span style="color:#8d99a8;">(n. ${fmtEUR(s.pvDepotNet[yr])})</span>`
+      : fmtEUR(s.pvDepotGross[yr]);
+    const etfDepotLine = showNetto
+      ? `${fmtEUR(s.etfDepotGross[yr])} <span style="color:#8d99a8;">(n. ${fmtEUR(s.etfDepotNet[yr])})</span>`
+      : fmtEUR(s.etfDepotGross[yr]);
     let html = `<div style="color:#8d99a8;margin-bottom:4px;">Jahr ${yr}</div>
       <div class="row"><span style="color:#22c55e;">PV+ETF</span><span>${pvLine}</span></div>
+      <div class="row" style="padding-left:10px;"><span style="color:#8d99a8;">Girokonto</span><span>${fmtEUR(s.pvGiro[yr])}</span></div>
+      <div class="row" style="padding-left:10px;margin-bottom:6px;"><span style="color:#8d99a8;">Depot</span><span>${pvDepotLine}</span></div>
       <div class="row"><span style="color:#4c8eff;">Nur ETF</span><span>${etfLine}</span></div>
+      <div class="row" style="padding-left:10px;"><span style="color:#8d99a8;">Girokonto</span><span>${fmtEUR(s.etfGiro[yr])}</span></div>
+      <div class="row" style="padding-left:10px;margin-bottom:6px;"><span style="color:#8d99a8;">Depot</span><span>${etfDepotLine}</span></div>
       <div class="row"><span style="color:#ef6f61;">Keine Inv.</span><span>${fmtEUR(s.none[yr])}</span></div>`;
     if(meta.compareSeries){
       const c = meta.compareSeries;
