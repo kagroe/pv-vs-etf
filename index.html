@@ -244,8 +244,8 @@
         <input type="range" id="I0" min="0" max="40000" step="500" value="11000">
       </div>
       <div class="field">
-        <div class="field-label"><span>Stromverbrauch / Jahr</span><span class="val" id="v_E">8.640 kWh</span></div>
-        <input type="range" id="E" min="1000" max="20000" step="100" value="8640">
+        <div class="field-label"><span>Stromverbrauch / Jahr</span><span class="num-edit-wrap"><input type="number" id="E_num" class="num-edit" min="0" max="40000" step="1" value="8640"><span class="num-edit-unit">kWh</span></span></div>
+        <input type="range" id="E" min="0" max="40000" step="100" value="8640">
       </div>
       <div class="field">
         <div class="field-label"><span>Stromkosten / kWh</span><span class="val" id="v_p0">0,34 €</span></div>
@@ -313,8 +313,8 @@
           <div class="field-sub">Anteil des Verbrauchs, den die Anlage selbst deckt</div>
         </div>
         <div class="field">
-          <div class="field-label"><span>Erzeugung / Jahr</span><span class="val" id="v_erzeugungPct">8.523 kWh</span></div>
-          <input type="range" id="erzeugungPct" min="0" max="20000" step="50" value="8523">
+          <div class="field-label"><span>Erzeugung / Jahr</span><span class="num-edit-wrap"><input type="number" id="erzeugungPct_num" class="num-edit" min="0" max="40000" step="1" value="8523"><span class="num-edit-unit">kWh</span></span></div>
+          <input type="range" id="erzeugungPct" min="0" max="40000" step="50" value="8523">
           <div class="field-sub">Gesamte PV-Produktion laut App/Zähler</div>
         </div>
         <div class="ev-info">
@@ -324,13 +324,13 @@
 
       <div id="kwhModeFields" style="display:none;">
         <div class="field">
-          <div class="field-label"><span>Erzeugung / Jahr</span><span class="val" id="v_erzeugung">8.523 kWh</span></div>
-          <input type="range" id="erzeugung" min="0" max="20000" step="50" value="8523">
+          <div class="field-label"><span>Erzeugung / Jahr</span><span class="num-edit-wrap"><input type="number" id="erzeugung_num" class="num-edit" min="0" max="40000" step="1" value="8523"><span class="num-edit-unit">kWh</span></span></div>
+          <input type="range" id="erzeugung" min="0" max="40000" step="50" value="8523">
           <div class="field-sub">Gesamte PV-Produktion laut App/Zähler</div>
         </div>
         <div class="field">
-          <div class="field-label"><span>Eigennutzung / Jahr</span><span class="val" id="v_eigennutzung">5.443 kWh</span></div>
-          <input type="range" id="eigennutzung" min="0" max="20000" step="50" value="5443">
+          <div class="field-label"><span>Eigennutzung / Jahr</span><span class="num-edit-wrap"><input type="number" id="eigennutzung_num" class="num-edit" min="0" max="40000" step="1" value="5443"><span class="num-edit-unit">kWh</span></span></div>
+          <input type="range" id="eigennutzung" min="0" max="40000" step="50" value="5443">
           <div class="field-sub">Direkt selbst verbrauchter PV-Strom laut App/Zähler</div>
         </div>
         <div class="ev-info">
@@ -499,7 +499,7 @@
 </div>
 
 <script>
-const ids=['E','p0','g','r','t','a','f','m','s','years','deg','basiszins','freibetrag','teilfreistellung','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare','erzeugung','eigennutzung','erzeugungPct','wrJahr','wrKosten'];
+const ids=['p0','g','r','t','a','f','m','s','years','deg','basiszins','freibetrag','teilfreistellung','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare','wrJahr','wrKosten'];
 const els={}; ids.forEach(id=>els[id]=document.getElementById(id));
 let evEnabled=false;
 const evToggle=document.getElementById('evToggle');
@@ -568,14 +568,14 @@ const fmtYear = n => n.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFr
 function updateLabels(){
   // I0-Zahlenfeld ist die alleinige Quelle für den exakten Wert und wird hier bewusst
   // NICHT vom (schrittgerundeten) Slider überschrieben.
-  document.getElementById('v_E').textContent = fmtInt(+els.E.value)+' kWh';
+  // Stromverbrauch: Zahlenfeld ist eigenständige Quelle, siehe eigenständigen Sync-Block
   document.getElementById('v_p0').textContent = (+els.p0.value).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
   document.getElementById('v_g').textContent = (+els.g.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
   document.getElementById('v_r').textContent = (+els.r.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
   document.getElementById('v_t').textContent = (+els.t.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
   document.getElementById('v_a').textContent = fmtInt(+els.a.value)+' %';
   document.getElementById('v_f').textContent = (+els.f.value).toLocaleString('de-DE',{minimumFractionDigits:3})+' €';
-  document.getElementById('v_erzeugungPct').textContent = fmtInt(+els.erzeugungPct.value)+' kWh';
+  // Erzeugung (Prozent-Modus): Zahlenfeld ist eigenständige Quelle
   document.getElementById('v_m').textContent = fmtEUR(+els.m.value);
   document.getElementById('v_wrJahr').textContent = els.wrJahr.value==='0' ? 'kein Tausch' : els.wrJahr.value;
   document.getElementById('v_wrKosten').textContent = fmtEUR(+els.wrKosten.value);
@@ -595,8 +595,7 @@ function updateLabels(){
   const evLiterYear = (+els.evKm.value)*(+els.evBenzinVerbrauch.value)/100;
   document.getElementById('v_evKwhInfo').textContent = fmtInt(evKwhYear)+' kWh/Jahr';
   document.getElementById('v_evLiterInfo').textContent = fmtInt(evLiterYear)+' l/Jahr';
-  document.getElementById('v_erzeugung').textContent = fmtInt(+els.erzeugung.value)+' kWh';
-  document.getElementById('v_eigennutzung').textContent = fmtInt(+els.eigennutzung.value)+' kWh';
+  // Erzeugung/Eigennutzung (kWh-Modus): Zahlenfelder sind eigenständige Quelle
   const derived = getEffectiveAF();
   document.getElementById('v_derivedAutarkie').textContent = fmtInt(derived.a*100)+' %';
   document.getElementById('v_derivedEinspeisung').textContent = fmtInt(derived.F)+' kWh/Jahr';
@@ -604,10 +603,10 @@ function updateLabels(){
 }
 
 function getEffectiveAF(){
-  const E = +els.E.value;
+  const E = +document.getElementById('E_num').value;
   if(pvInputMode==='kwh'){
-    const erz = +els.erzeugung.value;
-    const eig = +els.eigennutzung.value;
+    const erz = +document.getElementById('erzeugung_num').value;
+    const eig = +document.getElementById('eigennutzung_num').value;
     const effEig = Math.min(eig, erz, E);
     const aUsed = E>0 ? effEig/E : 0;
     const FUsed = Math.max(0, erz-effEig);
@@ -618,7 +617,7 @@ function getEffectiveAF(){
   // damit sie unabhängig von der Einspeisevergütung immer korrekt mit der tatsächlichen
   // Anlagenproduktion gekoppelt bleibt.
   const aInput = (+els.a.value)/100;
-  const erzPct = +els.erzeugungPct.value;
+  const erzPct = +document.getElementById('erzeugungPct_num').value;
   const eigPct = Math.min(E*aInput, erzPct);
   const aUsed = E>0 ? eigPct/E : 0;
   const FUsed = Math.max(0, erzPct-eigPct);
@@ -642,7 +641,7 @@ function computeTax(kapEr, etfPrevValue, basiszins, freibetrag, t, teilfreistell
 
 function computeSeries(evOverride, rOverride){
   const useEv = (evOverride===undefined) ? evEnabled : evOverride;
-  const I0=+document.getElementById('I0_num').value, E=+els.E.value, p0=+els.p0.value, g=(+els.g.value)/100,
+  const I0=+document.getElementById('I0_num').value, E=+document.getElementById('E_num').value, p0=+els.p0.value, g=(+els.g.value)/100,
         r=(rOverride!==undefined ? rOverride : (+els.r.value)/100), t=(+els.t.value)/100,
         f=+els.f.value, m=+els.m.value, s=(+els.s.value)/100,
         years=+els.years.value, deg=(+els.deg.value)/100,
@@ -986,27 +985,39 @@ document.getElementById('shareLinkBtn').addEventListener('click', ()=>{
 
 ids.forEach(id=> els[id].addEventListener('input', render));
 
-// ---- PV-Investition: eigenständiger Block, Zahlenfeld ist alleinige Quelle ----
-const I0Slider = document.getElementById('I0');
-const I0Num = document.getElementById('I0_num');
-I0Slider.addEventListener('input', ()=>{
-  I0Num.value = I0Slider.value; // Slider -> Feld
-  render();
-});
-I0Num.addEventListener('input', render); // Feld -> Slider bleibt unangetastet
-I0Num.addEventListener('blur', ()=>{
-  let v = +I0Num.value;
-  if(isNaN(v)) v = 11000;
-  v = Math.max(1, Math.min(40000, v));
-  I0Num.value = Math.round(v);
-  render();
-});
+// ---- Exakte Zahlenfelder: eigenständig, Zahlenfeld ist alleinige Quelle ----
+function wireExactField(sliderId, numId, fallback, min, max){
+  const slider = document.getElementById(sliderId);
+  const num = document.getElementById(numId);
+  slider.addEventListener('input', ()=>{
+    num.value = slider.value; // Slider -> Feld
+    render();
+  });
+  num.addEventListener('input', render); // Feld -> Slider bleibt unangetastet
+  num.addEventListener('blur', ()=>{
+    let v = +num.value;
+    if(isNaN(v)) v = fallback;
+    v = Math.max(min, Math.min(max, v));
+    num.value = Math.round(v);
+    render();
+  });
+  return {slider, num};
+}
+const I0Num = wireExactField('I0', 'I0_num', 11000, 1, 40000).num;
+const ENum = wireExactField('E', 'E_num', 8640, 0, 40000).num;
+const erzeugungPctNum = wireExactField('erzeugungPct', 'erzeugungPct_num', 8523, 0, 40000).num;
+const erzeugungNum = wireExactField('erzeugung', 'erzeugung_num', 8523, 0, 40000).num;
+const eigennutzungNum = wireExactField('eigennutzung', 'eigennutzung_num', 5443, 0, 40000).num;
 
 // ---- Export / Import ----
 function gatherConfig(){
   const data = {};
   ids.forEach(id => data[id] = +els[id].value);
   data.I0 = +document.getElementById('I0_num').value; // exakter Wert, nicht der auf Schritt gerundete Slider-Wert
+  data.E = +document.getElementById('E_num').value;
+  data.erzeugungPct = +document.getElementById('erzeugungPct_num').value;
+  data.erzeugung = +document.getElementById('erzeugung_num').value;
+  data.eigennutzung = +document.getElementById('eigennutzung_num').value;
   data.taxMode = taxMode;
   data.evEnabled = evEnabled;
   data.pvInputMode = pvInputMode;
@@ -1038,6 +1049,14 @@ function applyConfig(data){
     document.getElementById('I0_num').value = Math.round(clampedI0);
     document.getElementById('I0').value = clampedI0;
   }
+  const exactFields = [['E','E_num',0],['erzeugungPct','erzeugungPct_num',0],['erzeugung','erzeugung_num',0],['eigennutzung','eigennutzung_num',0]];
+  exactFields.forEach(([key,numId])=>{
+    if(data.hasOwnProperty(key)){
+      const clamped = Math.max(0, Math.min(40000, +data[key]));
+      document.getElementById(numId).value = Math.round(clamped);
+      document.getElementById(key).value = clamped;
+    }
+  });
   if(data.taxMode === 'real'){ taxRealBtn.click(); } else if(data.taxMode === 'simple'){ taxSimpleBtn.click(); }
   if(typeof data.evEnabled === 'boolean' && data.evEnabled !== evEnabled){ evToggle.click(); }
   if(data.pvInputMode === 'kwh'){ pvModeKwhBtn.click(); } else if(data.pvInputMode === 'pct'){ pvModePctBtn.click(); }
