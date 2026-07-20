@@ -232,6 +232,7 @@
         <div class="io-buttons">
           <button type="button" id="exportBtn" class="io-btn" title="Aktuelle Werte als JSON speichern">Export</button>
           <button type="button" id="importBtn" class="io-btn" title="Werte aus JSON-Datei laden">Import</button>
+          <button type="button" id="shareLinkBtn" class="io-btn" title="Link mit aktuellen Werten kopieren">Link kopieren</button>
           <input type="file" id="importFile" accept="application/json,.json" style="display:none;">
         </div>
       </div>
@@ -343,6 +344,15 @@
       <div class="field">
         <div class="field-label"><span>Wartungskosten / Jahr</span><span class="val" id="v_m">100 €</span></div>
         <input type="range" id="m" min="0" max="500" step="10" value="100">
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Wechselrichter-Tausch nach Jahr</span><span class="val" id="v_wrJahr">12</span></div>
+        <input type="range" id="wrJahr" min="0" max="30" step="1" value="12">
+        <div class="field-sub">0 = kein Tausch eingeplant</div>
+      </div>
+      <div class="field">
+        <div class="field-label"><span>Wechselrichter-Kosten</span><span class="val" id="v_wrKosten">1.500 €</span></div>
+        <input type="range" id="wrKosten" min="0" max="5000" step="50" value="1500">
       </div>
       <div class="field">
         <div class="field-label"><span>Reinvestitionsanteil</span><span class="val" id="v_s">100 %</span></div>
@@ -479,7 +489,7 @@
 </div>
 
 <script>
-const ids=['E','p0','g','r','t','a','f','m','s','years','deg','basiszins','freibetrag','teilfreistellung','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare','erzeugung','eigennutzung','erzeugungPct'];
+const ids=['E','p0','g','r','t','a','f','m','s','years','deg','basiszins','freibetrag','teilfreistellung','evKm','evStromVerbrauch','evBenzinVerbrauch','fuelPrice','fuelIncrease','evPvShare','erzeugung','eigennutzung','erzeugungPct','wrJahr','wrKosten'];
 const els={}; ids.forEach(id=>els[id]=document.getElementById(id));
 let evEnabled=false;
 const evToggle=document.getElementById('evToggle');
@@ -550,6 +560,8 @@ function updateLabels(){
   document.getElementById('v_f').textContent = (+els.f.value).toLocaleString('de-DE',{minimumFractionDigits:3})+' €';
   document.getElementById('v_erzeugungPct').textContent = fmtInt(+els.erzeugungPct.value)+' kWh';
   document.getElementById('v_m').textContent = fmtEUR(+els.m.value);
+  document.getElementById('v_wrJahr').textContent = els.wrJahr.value==='0' ? 'kein Tausch' : els.wrJahr.value;
+  document.getElementById('v_wrKosten').textContent = fmtEUR(+els.wrKosten.value);
   document.getElementById('v_s').textContent = fmtInt(+els.s.value)+' %';
   document.getElementById('v_years').textContent = els.years.value+' Jahre';
   document.getElementById('v_deg').textContent = (+els.deg.value).toLocaleString('de-DE',{minimumFractionDigits:1})+' %';
@@ -618,7 +630,8 @@ function computeSeries(evOverride){
         f=+els.f.value, m=+els.m.value, s=(+els.s.value)/100,
         years=+els.years.value, deg=(+els.deg.value)/100,
         basiszins=(+els.basiszins.value)/100, freibetrag=+els.freibetrag.value,
-        teilfreistellung=(+els.teilfreistellung.value)/100;
+        teilfreistellung=(+els.teilfreistellung.value)/100,
+        wrJahr=+els.wrJahr.value, wrKosten=+els.wrKosten.value;
   const {a, F} = getEffectiveAF();
   const feedInYears = 20;
 
@@ -666,7 +679,8 @@ function computeSeries(evOverride){
     const einspeise = n<=feedInYears ? f*exportKwh : 0;
     const kapEr2 = pv.ETF*r;
     const taxRes2 = computeTax(kapEr2, pv.ETF, basiszins, freibetrag, t, teilfreistellung);
-    const restkosten = E*price*(1-aEff) + evConsumption*price*(1-evPvShareEff) + m;
+    const restkosten = E*price*(1-aEff) + evConsumption*price*(1-evPvShareEff) + m
+      + (n===wrJahr && wrJahr>0 ? wrKosten : 0);
     pv.ETF = pv.ETF + kapEr2 + s*ersparnis + s*einspeise;
     pv.Giro = pv.Giro - taxRes2.tax - restkosten + (1-s)*einspeise - s*ersparnis + evFuelSavings;
     pvCostBasis += taxRes2.vorabGross + s*ersparnis + s*einspeise;
@@ -902,6 +916,37 @@ function render(){
   drawChart(series, compareSeries);
 }
 
+document.getElementById('shareLinkBtn').addEventListener('click', ()=>{
+  const data = gatherConfig();
+  const json = JSON.stringify(data);
+  const encoded = btoa(unescape(encodeURIComponent(json)));
+  const url = location.href.split('#')[0] + '#cfg=' + encoded;
+  const btn = document.getElementById('shareLinkBtn');
+  const showFeedback = (text)=>{
+    const original = btn.textContent;
+    btn.textContent = text;
+    setTimeout(()=>{ btn.textContent = original; }, 1800);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(()=> showFeedback('Kopiert!')).catch(()=> prompt('Link kopieren:', url));
+  } else {
+    prompt('Link kopieren:', url);
+  }
+});
+
+// Beim Laden: falls die URL eine #cfg=... enthält, Einstellungen daraus übernehmen
+(function applyConfigFromHash(){
+  if(location.hash.indexOf('cfg=') === -1) return;
+  try{
+    const encoded = location.hash.split('cfg=')[1];
+    const json = decodeURIComponent(escape(atob(decodeURIComponent(encoded))));
+    const data = JSON.parse(json);
+    applyConfig(data);
+  }catch(err){
+    console.error('Konnte Konfiguration aus Link nicht laden:', err);
+  }
+})();
+
 ids.forEach(id=> els[id].addEventListener('input', render));
 
 // ---- PV-Investition: eigenständiger Block, Zahlenfeld ist alleinige Quelle ----
@@ -921,13 +966,18 @@ I0Num.addEventListener('blur', ()=>{
 });
 
 // ---- Export / Import ----
-document.getElementById('exportBtn').addEventListener('click', ()=>{
+function gatherConfig(){
   const data = {};
   ids.forEach(id => data[id] = +els[id].value);
   data.I0 = +document.getElementById('I0_num').value; // exakter Wert, nicht der auf Schritt gerundete Slider-Wert
   data.taxMode = taxMode;
   data.evEnabled = evEnabled;
   data.pvInputMode = pvInputMode;
+  return data;
+}
+
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const data = gatherConfig();
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -939,6 +989,24 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   URL.revokeObjectURL(url);
 });
 
+function applyConfig(data){
+  ids.forEach(id=>{
+    if(data.hasOwnProperty(id) && els[id]){
+      const v = Math.max(+els[id].min, Math.min(+els[id].max, +data[id]));
+      els[id].value = v;
+    }
+  });
+  if(data.hasOwnProperty('I0')){
+    const clampedI0 = Math.max(1, Math.min(40000, +data.I0));
+    document.getElementById('I0_num').value = Math.round(clampedI0);
+    document.getElementById('I0').value = clampedI0;
+  }
+  if(data.taxMode === 'real'){ taxRealBtn.click(); } else if(data.taxMode === 'simple'){ taxSimpleBtn.click(); }
+  if(typeof data.evEnabled === 'boolean' && data.evEnabled !== evEnabled){ evToggle.click(); }
+  if(data.pvInputMode === 'kwh'){ pvModeKwhBtn.click(); } else if(data.pvInputMode === 'pct'){ pvModePctBtn.click(); }
+  render();
+}
+
 const importFileInput = document.getElementById('importFile');
 document.getElementById('importBtn').addEventListener('click', ()=> importFileInput.click());
 importFileInput.addEventListener('change', (e)=>{
@@ -948,21 +1016,7 @@ importFileInput.addEventListener('change', (e)=>{
   reader.onload = (ev)=>{
     try{
       const data = JSON.parse(ev.target.result);
-      ids.forEach(id=>{
-        if(data.hasOwnProperty(id) && els[id]){
-          const v = Math.max(+els[id].min, Math.min(+els[id].max, +data[id]));
-          els[id].value = v;
-        }
-      });
-      if(data.hasOwnProperty('I0')){
-        const clampedI0 = Math.max(1, Math.min(40000, +data.I0));
-        document.getElementById('I0_num').value = Math.round(clampedI0);
-        document.getElementById('I0').value = clampedI0;
-      }
-      if(data.taxMode === 'real'){ taxRealBtn.click(); } else if(data.taxMode === 'simple'){ taxSimpleBtn.click(); }
-      if(typeof data.evEnabled === 'boolean' && data.evEnabled !== evEnabled){ evToggle.click(); }
-      if(data.pvInputMode === 'kwh'){ pvModeKwhBtn.click(); } else if(data.pvInputMode === 'pct'){ pvModePctBtn.click(); }
-      render();
+      applyConfig(data);
     }catch(err){
       alert('Die Datei konnte nicht gelesen werden — ist es eine gültige JSON-Datei aus diesem Rechner?');
     }
