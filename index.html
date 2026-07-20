@@ -181,6 +181,7 @@
   .dot.gold{background:var(--gold);} .dot.teal{background:var(--teal);} .dot.coral{background:var(--coral);}
   .dot.amort{background:#a78bfa;}
   .dot-dash{width:16px;height:0;border-top:2px dashed var(--text-dim);flex-shrink:0;}
+  .dot-band{width:16px;height:10px;border-radius:2px;flex-shrink:0;background:linear-gradient(90deg, rgba(34,197,94,0.35), rgba(76,142,255,0.35));}
   .ev-info{
     background:var(--bg-panel-2);border:1px solid var(--line-soft);border-radius:10px;
     padding:12px 14px;margin:4px 0 20px;display:flex;flex-direction:column;gap:6px;
@@ -260,6 +261,12 @@
       <div class="field">
         <div class="field-label"><span>Rendite / Jahr</span><span class="val" id="v_r">7,0 %</span></div>
         <input type="range" id="r" min="0" max="12" step="0.5" value="7">
+      </div>
+      <div class="field">
+        <div class="mini-h-row" style="margin-bottom:0;">
+          <div class="field-sub" style="margin-top:0;">Renditebandbreite anzeigen (±3 %-Punkte)</div>
+          <button type="button" id="bandToggle" class="toggle-switch" aria-pressed="false"><span class="knob"></span></button>
+        </div>
       </div>
       <div class="field">
         <div class="field-label"><span>Kapitalertragsteuer</span><span class="val" id="v_t">25,0 %</span></div>
@@ -474,6 +481,9 @@
           <div class="legend" id="legendCompare" style="display:none;">
             <div class="legend-item"><span class="dot-dash"></span>gestrichelt = mit Verbrenner statt E-Auto</div>
           </div>
+          <div class="legend" id="legendBand" style="display:none;">
+            <div class="legend-item"><span class="dot-band"></span>schattiert = ±3 %-Punkte Renditeschwankung</div>
+          </div>
         </div>
         <div class="chart-wrap">
           <svg id="chartSvg" viewBox="0 0 900 380"></svg>
@@ -502,6 +512,13 @@ evToggle.addEventListener('click', ()=>{
 });
 let showCompare=false;
 const compareToggle=document.getElementById('compareToggle');
+let showBand=false;
+const bandToggle=document.getElementById('bandToggle');
+bandToggle.addEventListener('click', ()=>{
+  showBand=!showBand;
+  bandToggle.setAttribute('aria-pressed', showBand?'true':'false');
+  render();
+});
 compareToggle.addEventListener('click', ()=>{
   showCompare=!showCompare;
   compareToggle.setAttribute('aria-pressed', showCompare?'true':'false');
@@ -623,10 +640,10 @@ function computeTax(kapEr, etfPrevValue, basiszins, freibetrag, t, teilfreistell
   return {tax: steuerpflichtig*t, vorabGross, usedAllowance};
 }
 
-function computeSeries(evOverride){
+function computeSeries(evOverride, rOverride){
   const useEv = (evOverride===undefined) ? evEnabled : evOverride;
   const I0=+document.getElementById('I0_num').value, E=+els.E.value, p0=+els.p0.value, g=(+els.g.value)/100,
-        r=(+els.r.value)/100, t=(+els.t.value)/100,
+        r=(rOverride!==undefined ? rOverride : (+els.r.value)/100), t=(+els.t.value)/100,
         f=+els.f.value, m=+els.m.value, s=(+els.s.value)/100,
         years=+els.years.value, deg=(+els.deg.value)/100,
         basiszins=(+els.basiszins.value)/100, freibetrag=+els.freibetrag.value,
@@ -741,12 +758,13 @@ function findBreakeven(series){
   return findCrossing(series.pvGross, series.etfGross);
 }
 
-function drawChart(series, compareSeries){
+function drawChart(series, compareSeries, bandSeries){
   const svg = document.getElementById('chartSvg');
   const W=900,H=380, padL=64,padR=20,padT=28,padB=66;
   const years = series.pv.length-1;
   const all = [...series.pv, ...series.etf, ...series.none];
   if(compareSeries){ all.push(...compareSeries.pv, ...compareSeries.etf, ...compareSeries.none); }
+  if(bandSeries){ all.push(...bandSeries.low.pvGross, ...bandSeries.low.etfGross, ...bandSeries.high.pvGross, ...bandSeries.high.etfGross); }
   const minV = Math.min(0, ...all);
   const maxV = Math.max(...all);
   const range = maxV-minV || 1;
@@ -774,6 +792,17 @@ function drawChart(series, compareSeries){
   const step = years>20?5:(years>10?2:1);
   for(let yr=0; yr<=years; yr+=step){
     svgContent += `<text x="${x(yr).toFixed(1)}" y="${H-padB+20}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#5c6a7a">${yr}</text>`;
+  }
+
+  // Renditebandbreite: gefüllte Fläche zwischen pessimistischem und optimistischem Verlauf
+  if(bandSeries){
+    const mkBand = (lowArr, highArr) => {
+      const top = highArr.map((v,i)=> (i===0?'M':'L') + x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
+      const bottom = lowArr.slice().reverse().map((v,i)=> 'L' + x(lowArr.length-1-i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
+      return top + ' ' + bottom + ' Z';
+    };
+    svgContent += `<path d="${mkBand(bandSeries.low.etfGross, bandSeries.high.etfGross)}" fill="#4c8eff" opacity="0.14" stroke="none"/>`;
+    svgContent += `<path d="${mkBand(bandSeries.low.pvGross, bandSeries.high.pvGross)}" fill="#22c55e" opacity="0.14" stroke="none"/>`;
   }
 
   svgContent += `<path d="${mkPath(series.none)}" fill="none" stroke="#ef6f61" stroke-width="2" opacity="0.85"/>`;
@@ -913,7 +942,15 @@ function render(){
   document.getElementById('legendCompare').style.display = (evEnabled && showCompare) ? 'flex' : 'none';
   const compareSeries = (evEnabled && showCompare) ? computeSeries(false) : null;
 
-  drawChart(series, compareSeries);
+  const rCurrent = (+els.r.value)/100;
+  const bandSeries = showBand ? {
+    low: computeSeries(undefined, Math.max(0, rCurrent-0.03)),
+    high: computeSeries(undefined, rCurrent+0.03)
+  } : null;
+  const legendBand = document.getElementById('legendBand');
+  if(legendBand) legendBand.style.display = showBand ? 'flex' : 'none';
+
+  drawChart(series, compareSeries, bandSeries);
 }
 
 document.getElementById('shareLinkBtn').addEventListener('click', ()=>{
