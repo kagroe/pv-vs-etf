@@ -365,6 +365,7 @@
         <div class="field-label"><span>Reinvestitionsanteil</span><span class="val" id="v_s">100 %</span></div>
         <input type="range" id="s" min="0" max="100" step="5" value="100">
         <div class="field-sub">Anteil von Ersparnis &amp; Einspeisevergütung, der in ETFs fließt</div>
+        <div class="field-sub" id="v_sAvgEuro">≈ — €/Jahr im Schnitt</div>
       </div>
 
       <div class="section-div"></div>
@@ -662,6 +663,7 @@ function computeSeries(evOverride, rOverride){
   let pv = {ETF:0, Giro:0};
   let none = {Giro:I0};
   let noneStromCum = 0;
+  let reinvestCum = 0;
   let etfCostBasis = I0;  // steuerliche Anschaffungskosten (wächst durch versteuerte Vorabpauschale)
   let pvCostBasis = 0;
 
@@ -698,6 +700,7 @@ function computeSeries(evOverride, rOverride){
     const restkosten = E*price*(1-aEff) + evConsumption*price*(1-evPvShareEff) + m
       + (n===wrJahr && wrJahr>0 ? wrKosten : 0);
     pv.ETF = pv.ETF + kapEr2 + s*ersparnis + s*einspeise;
+    reinvestCum += s*ersparnis + s*einspeise;
     pv.Giro = pv.Giro - taxRes2.tax - restkosten + (1-s)*einspeise - s*ersparnis + evFuelSavings;
     pvCostBasis += taxRes2.vorabGross + s*ersparnis + s*einspeise;
 
@@ -735,6 +738,7 @@ function computeSeries(evOverride, rOverride){
   // Amortisation = tatsächlicher Schnittpunkt der PV+ETF- und der Keine-Investition-Kurve
   series.amortYear = findCrossing(series.pvGross, series.none);
   series.noneStromTotal = noneStromCum;
+  series.avgReinvestPerYear = years>0 ? reinvestCum/years : 0;
   series.feedInYears = feedInYears;
   return series;
 }
@@ -911,6 +915,7 @@ function render(){
   document.getElementById('stat_none').textContent = fmtEUR(series.none[years]);
   document.getElementById('stat_none').classList.toggle('neg', series.none[years]<0);
   document.getElementById('stat_none_strom').textContent = 'davon Stromkosten: ' + fmtEUR(series.noneStromTotal);
+  document.getElementById('v_sAvgEuro').textContent = '≈ ' + fmtEUR(series.avgReinvestPerYear) + '/Jahr im Schnitt';
   const pvNettoHint = document.getElementById('stat_pvetf_netto');
   const etfNettoHint = document.getElementById('stat_etf_netto');
   if(taxMode==='real'){
